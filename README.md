@@ -1,50 +1,51 @@
-# Welcome to your Expo app 👋
+# Oasis Warehouse Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile application for warehouse management with E-Barimt electronic invoice integration.
 
-## Get started
+## Features
 
-1. Install dependencies
+- 📦 **Inventory Management** - Track products and stock levels
+- 📋 **Order Management** - Process and fulfill orders
+- 🧾 **E-Barimt Integration** - Electronic invoice registration and printing
+- 🖨️ **Bluetooth Printing** - Print receipts via ESC/POS thermal printers
+- 📊 **Sales Reports** - View sales KPIs and analytics
 
+## Quick Start
+
+1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Start the app
+2. Configure environment:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API URL and E-Barimt POS ID
+   ```
 
+3. Start development:
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+## E-Barimt Integration
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+See [docs/E-BARIMT-INTEGRATION.md](docs/E-BARIMT-INTEGRATION.md) for detailed documentation on:
+- API endpoints
+- Offline queue management
+- Bluetooth printing setup
+- Troubleshooting
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Tech Stack
 
-## Get a fresh project
+- **Framework**: Expo SDK 54 / React Native
+- **Navigation**: expo-router
+- **State**: React Context + AsyncStorage
+- **API**: Axios
+- **Printing**: react-native-esc-pos-printer
+- **Bluetooth**: @aspect-dev/react-native-bluetooth-classic
 
-When you're ready, run:
+## Documentation
 
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [E-Barimt Integration](docs/E-BARIMT-INTEGRATION.md)
+- [Expo SDK v54 Docs](https://docs.expo.dev/versions/v54.0.0/)
