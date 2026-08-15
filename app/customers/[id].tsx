@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +26,7 @@ export default function CustomerDetailScreen() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -70,6 +72,34 @@ export default function CustomerDetailScreen() {
       const encodedAddress = encodeURIComponent(customer.address);
       Linking.openURL(`https://maps.apple.com/?daddr=${encodedAddress}`);
     }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Устгах',
+      `${customer.name} устагахдаа итгэлтэй байна уу?`,
+      [
+        { text: 'Болих', style: 'cancel' },
+        {
+          text: 'Устгах',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await customersApi.deleteCustomer(Number(id));
+              router.back();
+            } catch (error: any) {
+              Alert.alert(
+                'Алдаа',
+                error.response?.data?.message || 'Устгах явцад алдаа гарлаа'
+              );
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (isLoading || !customer) {
@@ -167,6 +197,22 @@ export default function CustomerDetailScreen() {
             </Card>
           )}
         </View>
+
+        {/* Delete Button */}
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDelete}
+          disabled={isDeleting}
+        >
+          {isDeleting ? (
+            <ActivityIndicator color={Colors.error} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={20} color={Colors.error} />
+              <Text style={styles.deleteButtonText}>Харилцагч устгах</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -314,5 +360,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: FontSizes.sm,
     color: Colors['muted-foreground'],
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.errorBackground,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.lg,
+  },
+  deleteButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.error,
   },
 });

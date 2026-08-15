@@ -30,7 +30,61 @@ export default function OrderDetailScreen() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [showEBarimtModal, setShowEBarimtModal] = useState(false);
+
+  /**
+   * Check if an order can be deleted based on eBarimt status
+   * Deletable if:
+   * - eBarimt not registered yet
+   * - eBarimt has been returned
+   * - Order is already cancelled
+   */
+  const canDeleteOrder = (orderData: Order): boolean => {
+    return (
+      !orderData.ebarimtRegistered ||
+      orderData.ebarimtReturnId != null ||
+      orderData.status === 'Cancelled'
+    );
+  };
+
+  const handleDeleteOrder = () => {
+    if (!order) return;
+
+    // Шалгах: устгаж болох эсэх
+    if (!canDeleteOrder(order)) {
+      Alert.alert(
+        'Устгах боломжгүй',
+        'И-баримт хэвлэгдсэн идэвхтэй захиалгыг устгах боломжгүй. Эхлээд И-баримтыг буцаагаад дараа нь устгах уу.'
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Захиалга устгах',
+      'Та энэ захиалгыг бүрмösөн устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.',
+      [
+        { text: 'Болих', style: 'cancel' },
+        {
+          text: 'Устгах',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await ordersApi.deleteOrder(order.id);
+              Alert.alert('Амжилттай', 'Захиалга устгагдлаа');
+              router.back();
+            } catch (error: any) {
+              const message = error?.response?.data?.message || 'Захиалга устгахад алдаа гарлаа';
+              Alert.alert('Алдаа', message);
+            } finally {
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     if (id) {
@@ -123,6 +177,16 @@ export default function OrderDetailScreen() {
             <Text style={styles.dateText}>
               {new Date(order.orderDate).toLocaleDateString('mn-MN')}
             </Text>
+          </View>
+          {/* И-баримт статус */}
+          <View style={styles.ebarimtBadge}>
+            {order.ebarimtReturnId ? (
+              <Text style={styles.returnedBadge}>◉ Буцаагдсан</Text>
+            ) : order.ebarimtRegistered ? (
+              <Text style={styles.activeBadge}>◉ Идэвхтэй</Text>
+            ) : (
+              <Text style={styles.notRegisteredBadge}>○ Бүртгэлгүй</Text>
+            )}
           </View>
         </Card>
 
@@ -232,6 +296,17 @@ export default function OrderDetailScreen() {
             leftIcon={<Ionicons name="receipt" size={18} color={Colors.primary} />}
             style={styles.actionButton}
           />
+          {/* Устгах товчлуур - зөвхөн устгаж болох захиалгад */}
+          {canDeleteOrder(order) && (
+            <Button
+              title="Устгах"
+              variant="destructive"
+              onPress={handleDeleteOrder}
+              isLoading={isDeleting}
+              leftIcon={<Ionicons name="trash" size={18} color={Colors.destructive} />}
+              style={styles.actionButton}
+            />
+          )}
           {order.status === 'Pending' && (
             <>
               <Button
@@ -327,6 +402,24 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   dateText: {
+    fontSize: FontSizes.sm,
+    color: Colors['muted-foreground'],
+  },
+  // И-баримт статусын badge
+  ebarimtBadge: {
+    marginTop: Spacing.sm,
+  },
+  returnedBadge: {
+    fontSize: FontSizes.sm,
+    color: Colors.muted,
+    fontWeight: '500',
+  },
+  activeBadge: {
+    fontSize: FontSizes.sm,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  notRegisteredBadge: {
     fontSize: FontSizes.sm,
     color: Colors['muted-foreground'],
   },

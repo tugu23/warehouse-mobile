@@ -80,4 +80,16 @@ export const ordersApi = {
     const response = await api.get<ApiResponse<Order[]>>(`/orders/store?${params.toString()}`);
     return response.data;
   },
+
+  /**
+   * Delete order permanently
+   * Only allowed if:
+   * - eBarimt not registered yet
+   * - eBarimt has been returned
+   * - Order is already cancelled
+   */
+  deleteOrder: async (id: number) => {
+    const response = await api.delete(`/orders/${id}`);
+    return response.data;
+  },
 };

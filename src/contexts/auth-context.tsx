@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedToken && storedUser) {
         // Check if token is valid
         try {
-          await api.get('/auth/validate');
+          await api.get('/auth/me');
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
         } catch (error: any) {

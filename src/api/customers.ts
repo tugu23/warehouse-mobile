@@ -61,4 +61,11 @@ export const customersApi = {
     }
     throw new Error(response.data.message || 'Failed to update customer');
   },
+
+  deleteCustomer: async (id: number): Promise<void> => {
+    const response = await api.delete<ApiResponse<{ message: string }>>(`/customers/${id}`);
+    if (response.data.status !== 'success') {
+      throw new Error(response.data.message || 'Failed to delete customer');
+    }
+  },
 };

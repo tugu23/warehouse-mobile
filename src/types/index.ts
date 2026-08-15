@@ -151,6 +151,7 @@ export interface Order {
   ebarimtId?: string;
   ebarimtBillId?: string;
   ebarimtDate?: string;
+  ebarimtReturnId?: string;
 }
 
 export interface CreateOrderRequest {
