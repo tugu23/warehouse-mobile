@@ -34,6 +34,21 @@ export default function OrderDetailScreen() {
   const [showEBarimtModal, setShowEBarimtModal] = useState(false);
 
   /**
+   * Check if an order can be edited
+   * Editable if:
+   * - Order is pending
+   * - eBarimt not registered yet
+   * - Order is not cancelled
+   */
+  const canEditOrder = (orderData: Order): boolean => {
+    return (
+      orderData.status === 'Pending' &&
+      !orderData.ebarimtRegistered &&
+      orderData.status !== 'Cancelled'
+    );
+  };
+
+  /**
    * Check if an order can be deleted based on eBarimt status
    * Deletable if:
    * - eBarimt not registered yet
@@ -62,7 +77,7 @@ export default function OrderDetailScreen() {
 
     Alert.alert(
       'Захиалга устгах',
-      'Та энэ захиалгыг бүрмösөн устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.',
+      'Та энэ захиалгыг бүрмөсөн устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцаах боломжгүй.',
       [
         { text: 'Болих', style: 'cancel' },
         {
@@ -127,7 +142,7 @@ export default function OrderDetailScreen() {
               const updated = await ordersApi.updateOrderStatus(order.id, newStatus);
               setOrder(updated);
             } catch (error) {
-              Alert.alert('Алдаа', 'Статусыг өөрчлөх чадсангүй');
+              Alert.alert('Алдаа', 'Статусыг өөрчилж чадсангүй');
             } finally {
               setIsUpdating(false);
             }
@@ -164,18 +179,18 @@ export default function OrderDetailScreen() {
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerSubtitle}>Захиалгын дэлгэрэнгүй</Text>
-          <Text style={styles.orderNumber}>{order.orderNumber || `#${order.id}`}</Text>
+          <Text style={styles.orderNumber} numberOfLines={1}>{order.orderNumber || `Захиалга #${String(order.id)}`}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Customer & Status */}
         <Card style={styles.customerCard}>
-          <Text style={styles.customerName}>{order.customer?.name || 'Unknown Customer'}</Text>
+          <Text style={styles.customerName} numberOfLines={2}>{order.customer?.name || 'Unknown Customer'}</Text>
           <View style={styles.badges}>
             <StatusBadge status={order.status} type="order" />
             <Text style={styles.dateText}>
-              {new Date(order.orderDate).toLocaleDateString('mn-MN')}
+              {order.orderDate ? new Date(order.orderDate).toLocaleDateString('mn-MN') : 'N/A'}
             </Text>
           </View>
           {/* И-баримт статус */}
@@ -218,6 +233,7 @@ export default function OrderDetailScreen() {
                       styles.timelineLabel,
                       step.done && styles.timelineLabelDone,
                     ]}
+                    numberOfLines={1}
                   >
                     {step.label}
                   </Text>
@@ -233,16 +249,16 @@ export default function OrderDetailScreen() {
           <View style={styles.infoTable}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Захиалгын дугаар</Text>
-              <Text style={styles.infoValue}>{order.orderNumber || `#${order.id}`}</Text>
+              <Text style={styles.infoValue}>{order.orderNumber || `Захиалга #${String(order.id)}`}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Харилцагч</Text>
-              <Text style={styles.infoValue}>{order.customer?.name}</Text>
+              <Text style={styles.infoValue}>{order.customer?.name || 'N/A'}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Огноо</Text>
               <Text style={styles.infoValue}>
-                {new Date(order.orderDate).toLocaleDateString('mn-MN')}
+                {order.orderDate ? new Date(order.orderDate).toLocaleDateString('mn-MN') : 'N/A'}
               </Text>
             </View>
             <View style={styles.infoRow}>
@@ -253,7 +269,7 @@ export default function OrderDetailScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Төлбөрийн хэлбэр</Text>
-              <Text style={styles.infoValue}>{order.paymentMethod}</Text>
+              <Text style={styles.infoValue}>{order.paymentMethod || 'N/A'}</Text>
             </View>
           </View>
         </Card>
@@ -261,29 +277,59 @@ export default function OrderDetailScreen() {
         {/* Items */}
         <Card style={styles.itemsCard}>
           <Text style={styles.sectionTitle}>Барааны жагсаалт</Text>
-          {order.orderItems?.map((item) => (
-            <View key={item.id} style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>
-                  {item.product?.nameMongolian || `Бараа #${item.productId}`}
-                </Text>
-                <Text style={styles.itemPrice}>
-                  {formatCurrency(item.unitPrice)} × {item.quantity}
-                </Text>
-              </View>
-              <Text style={styles.itemTotal}>
-                {formatCurrency(item.unitPrice * item.quantity)}
-              </Text>
-            </View>
-          ))}
+          {order.orderItems && order.orderItems.length > 0 ? (
+            order.orderItems.map((item) => {
+              if (!item) return null;
+
+              const hasPromotion = item.promotion != null || item.originalUnitPrice != null;
+              const isBuyXGetY = item.promotion?.type === 'BUY_X_GET_Y';
+
+              const itemId = item.id ? String(item.id) : Math.random().toString();
+              const productName = item.product?.nameMongolian ? String(item.product.nameMongolian) : `Бараа #${item.productId || 'N/A'}`;
+              const unitPrice = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(String(item.unitPrice || '0'));
+              const quantity = typeof item.quantity === 'number' ? item.quantity : parseInt(String(item.quantity || '0'), 10);
+              const subtotal = typeof item.subtotal === 'number' ? item.subtotal : (unitPrice * quantity);
+
+              return (
+                <View key={itemId} style={styles.itemRow}>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName} numberOfLines={2}>{productName}</Text>
+                    {hasPromotion && item.promotion && item.promotion.name ? (
+                      <Text style={styles.promotionBadge}>🔥 {String(item.promotion.name)}</Text>
+                    ) : null}
+                    <Text style={styles.itemPrice}>{formatCurrency(unitPrice)} × {quantity}</Text>
+                    {item.bonusFreeQty && Number(item.bonusFreeQty) > 0 ? (
+                      <Text style={styles.bonusBadge}>🎁 +{Number(item.bonusFreeQty)} ширхэг үнэгүй</Text>
+                    ) : null}
+                    {item.promotion?.discountPercent ? (
+                      <Text style={styles.discountBadge}>-{Number(item.promotion.discountPercent)}% хөнгөлөлт</Text>
+                    ) : null}
+                    {isBuyXGetY ? (
+                      <Text style={styles.discountBadge}>
+                        🎁 {item.promotion?.buyQty || 0}+{item.promotion?.freeQty || 0}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.itemTotalContainer}>
+                    <Text style={styles.itemTotal}>{formatCurrency(subtotal)}</Text>
+                    {item.discountAmount && Number(item.discountAmount) > 0 ? (
+                      <Text style={styles.discountAmount}>-{formatCurrency(Number(item.discountAmount))}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={styles.itemPrice}>Бараа байхгүй</Text>
+          )}
           <View style={styles.divider} />
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>VAT (10%)</Text>
-            <Text style={styles.totalsValue}>{formatCurrency(vatAmount)}</Text>
+            <Text style={styles.totalsValue}>{formatCurrency(Number(vatAmount ?? 0))}</Text>
           </View>
           <View style={styles.totalsRow}>
             <Text style={styles.totalLabel}>Нийт дүн</Text>
-            <Text style={styles.totalValue}>{formatCurrency(order.totalAmount)}</Text>
+            <Text style={styles.totalValue}>{formatCurrency(Number(order.totalAmount ?? 0))}</Text>
           </View>
         </Card>
 
@@ -296,6 +342,16 @@ export default function OrderDetailScreen() {
             leftIcon={<Ionicons name="receipt" size={18} color={Colors.primary} />}
             style={styles.actionButton}
           />
+          {/* Edit button - only for pending orders without eBarimt */}
+          {canEditOrder(order) && (
+            <Button
+              title="Засах"
+              variant="secondary"
+              onPress={() => router.push(`/orders/${order.id}/edit`)}
+              leftIcon={<Ionicons name="create" size={18} color={Colors.primary} />}
+              style={styles.actionButton}
+            />
+          )}
           {/* Устгах товчлуур - зөвхөн устгаж болох захиалгад */}
           {canDeleteOrder(order) && (
             <Button
@@ -389,12 +445,13 @@ const styles = StyleSheet.create({
   customerCard: {
     margin: Spacing.md,
     marginBottom: 0,
+    paddingVertical: Spacing.sm,
   },
   customerName: {
-    fontSize: FontSizes.xl,
+    fontSize: FontSizes.lg,
     fontWeight: '700',
     color: Colors.foreground,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   badges: {
     flexDirection: 'row',
@@ -492,21 +549,27 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   infoTable: {
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+    minHeight: 32,
   },
   infoLabel: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
     color: Colors['muted-foreground'],
+    flex: 1,
   },
   infoValue: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
     fontWeight: '600',
     color: Colors.foreground,
+    flex: 1.5,
+    textAlign: 'right',
+    numberOfLines: 2,
   },
   itemsCard: {
     margin: Spacing.md,
@@ -516,19 +579,61 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.sm,
+    alignItems: 'flex-start',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   itemInfo: {
     flex: 1,
+    marginRight: Spacing.md,
   },
   itemName: {
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.foreground,
+    marginBottom: Spacing.xs,
   },
   itemPrice: {
     fontSize: FontSizes.sm,
     color: Colors['muted-foreground'],
+    marginTop: Spacing.xs,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  originalPrice: {
+    fontSize: FontSizes.sm,
+    color: Colors['muted-foreground'],
+    textDecorationLine: 'line-through',
+  },
+  promotionBadge: {
+    fontSize: FontSizes.xs,
+    color: Colors.primary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  bonusBadge: {
+    fontSize: FontSizes.xs,
+    color: '#22c55e',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  discountBadge: {
+    fontSize: FontSizes.xs,
+    color: '#f97316',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  discountAmount: {
+    fontSize: FontSizes.xs,
+    color: '#22c55e',
+    fontWeight: '600',
+  },
+  itemTotalContainer: {
+    alignItems: 'flex-end',
   },
   itemTotal: {
     fontSize: FontSizes.md,
@@ -543,7 +648,8 @@ const styles = StyleSheet.create({
   totalsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: Spacing.xs,
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
   },
   totalsLabel: {
     fontSize: FontSizes.md,
@@ -565,12 +671,14 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
     margin: Spacing.md,
     marginTop: Spacing.lg,
   },
   actionButton: {
     flex: 1,
+    minWidth: '45%',
   },
   fullWidthButton: {
     flex: 1,

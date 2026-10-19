@@ -15,18 +15,13 @@ import { FilterChips } from '@/components/ui/filter-chips';
 import { FAB } from '@/components/ui/fab';
 import { CustomerCard } from '@/components/customer-card';
 import { customersApi } from '@/api/customers';
-import { Customer } from '@/types';
+import { Customer, CustomerType } from '@/types';
 import { Colors, Spacing, FontSizes } from '@/constants/theme';
-
-const typeFilters = [
-  { key: 'all', label: 'Бүгд' },
-  { key: 'Retail', label: 'Жижиглэн' },
-  { key: 'Wholesale', label: 'Худалдаа' },
-];
 
 export default function CustomersScreen() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,6 +29,25 @@ export default function CustomersScreen() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+
+  // Fetch customer types from API
+  const fetchCustomerTypes = useCallback(async () => {
+    try {
+      const types = await customersApi.getCustomerTypes();
+      setCustomerTypes(types);
+    } catch (error) {
+      console.error('Error fetching customer types:', error);
+    }
+  }, []);
+
+  // Build filter options from API data
+  const typeFilters = [
+    { key: 'all', label: 'Бүгд' },
+    ...customerTypes.slice(0, 8).map((type) => ({
+      key: String(type.id),
+      label: type.typeName || `Төрөл ${type.id}`,
+    })),
+  ];
 
   const fetchCustomers = useCallback(async (query: string) => {
     if (!isAuthenticated || isAuthLoading) return;
@@ -43,8 +57,8 @@ export default function CustomersScreen() {
     try {
       const filters: any = { limit: 100 };
       if (selectedFilter !== 'all') {
-        // Map filter to customerTypeId
-        filters.customerTypeId = selectedFilter === 'Retail' ? 1 : 2;
+        // Use selectedFilter directly as customerTypeId
+        filters.customerTypeId = parseInt(selectedFilter, 10);
       }
       if (query) {
         filters.search = query;
@@ -62,16 +76,17 @@ export default function CustomersScreen() {
   // Initial fetch when auth is ready
   useEffect(() => {
     if (isAuthenticated && !isAuthLoading) {
+      fetchCustomerTypes();
       fetchCustomers('');
     }
-  }, [isAuthenticated, isAuthLoading]);
+  }, [isAuthenticated, isAuthLoading, fetchCustomerTypes, fetchCustomers]);
 
   // Re-fetch when filter changes
   useEffect(() => {
     if (searchQuery) {
       fetchCustomers(searchQuery);
     }
-  }, [selectedFilter]);
+  }, [selectedFilter, fetchCustomers]);
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -86,6 +101,7 @@ export default function CustomersScreen() {
   const handleRefresh = async () => {
     if (!searchQuery) return;
     setIsRefreshing(true);
+    await fetchCustomerTypes();
     await fetchCustomers(searchQuery);
     setIsRefreshing(false);
   };

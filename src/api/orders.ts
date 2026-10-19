@@ -37,9 +37,12 @@ export const ordersApi = {
   },
 
   getOrder: async (id: number): Promise<Order> => {
-    const response = await api.get<ApiResponse<Order>>(`/orders/${id}`);
+    const response = await api.get<ApiResponse<{ order: Order }>>(`/orders/${id}`);
     if (response.data.status === 'success' && response.data.data) {
-      return response.data.data as unknown as Order;
+      // Backend returns { order: {...} } inside data
+      const data = response.data.data as { order: Order } | Order;
+      const orderData = 'order' in data ? data.order : data;
+      return orderData as unknown as Order;
     }
     throw new Error(response.data.message || 'Order not found');
   },
@@ -56,7 +59,7 @@ export const ordersApi = {
   },
 
   updateOrderStatus: async (id: number, status: OrderStatus): Promise<Order> => {
-    const response = await api.patch<ApiResponse<Order>>(`/orders/${id}/status`, { status });
+    const response = await api.put<ApiResponse<Order>>(`/orders/${id}/status`, { status });
     if (response.data.status === 'success' && response.data.data) {
       return response.data.data as unknown as Order;
     }
@@ -91,5 +94,21 @@ export const ordersApi = {
   deleteOrder: async (id: number) => {
     const response = await api.delete(`/orders/${id}`);
     return response.data;
+  },
+
+  /**
+   * Update an existing order
+   * Only allowed if:
+   * - eBarimt not registered yet
+   * - Order is not cancelled
+   */
+  updateOrder: async (id: number, orderData: CreateOrderRequest): Promise<Order> => {
+    const response = await api.put<ApiResponse<{ order: Order }>>(`/orders/${id}`, orderData);
+    if (response.data.status === 'success' && response.data.data) {
+      const data = response.data.data as { order: Order } | Order;
+      const orderResponse = 'order' in data ? data.order : data;
+      return orderResponse as unknown as Order;
+    }
+    throw new Error(response.data.message || 'Failed to update order');
   },
 };

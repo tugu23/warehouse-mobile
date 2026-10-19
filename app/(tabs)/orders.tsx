@@ -46,13 +46,10 @@ export default function OrdersScreen() {
         filters.search = query;
       }
 
-      const response = await ordersApi.getOrders(filters);
-      if (response.data) {
-        const data = Array.isArray(response.data)
-          ? response.data
-          : (response.data as any).orders || [];
-        setOrders(data);
-      }
+      // Backend returns: { status, data: { orders: [...], pagination: {...} } }
+      const result = await ordersApi.getOrders(filters);
+      const ordersData = result?.data?.orders || [];
+      setOrders(ordersData);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {

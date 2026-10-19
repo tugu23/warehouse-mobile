@@ -30,27 +30,16 @@ export default function ProductsScreen() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const fetchProducts = useCallback(async () => {
-    // Only search if there's a query or category selected
-    if (!searchQuery && !selectedCategory) {
-      setProducts([]);
-      setHasSearched(false);
-      return;
-    }
-
     setIsLoading(true);
     setHasSearched(true);
     try {
-      const response = await productsApi.getProducts({
+      // getProducts already returns the products array directly
+      const data = await productsApi.getProducts({
         search: searchQuery || undefined,
         categoryId: selectedCategory || undefined,
         limit: 100,
       });
-      if (response.data) {
-        const data = Array.isArray(response.data)
-          ? response.data
-          : (response.data as any).products || [];
-        setProducts(data);
-      }
+      setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {

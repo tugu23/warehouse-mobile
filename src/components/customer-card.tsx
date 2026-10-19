@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Customer } from '@/types';
-import { Colors, FontSizes, Spacing, CustomerTypeLabels } from '@/constants/theme';
+import { Colors, FontSizes, Spacing, getCustomerTypeLabel } from '@/constants/theme';
 
 interface CustomerCardProps {
   customer: Customer;
@@ -29,6 +29,17 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
     }
   };
 
+  // Determine badge variant based on customer type
+  const getBadgeVariant = (typeName: string | undefined): 'success' | 'info' | 'primary' | 'warning' => {
+    if (!typeName) return 'success';
+    // Market types (Зах) get warning color
+    if (typeName === 'Зах' || typeName === 'Зах 2') return 'warning';
+    // Sales types get info color
+    if (typeName === 'Борлуулалт') return 'info';
+    // Default for shops
+    return 'success';
+  };
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <Card style={styles.card}>
@@ -47,8 +58,8 @@ export function CustomerCard({ customer, onPress }: CustomerCardProps) {
         <View style={styles.footer}>
           <View style={styles.badges}>
             <Badge
-              label={CustomerTypeLabels[customer.customerType?.typeName || 'Retail'] || 'Жижиглэн'}
-              variant={customer.customerType?.typeName === 'Wholesale' ? 'info' : 'success'}
+              label={getCustomerTypeLabel(customer.customerType?.typeName)}
+              variant={getBadgeVariant(customer.customerType?.typeName)}
             />
             {customer.isVatPayer && (
               <Badge label="VAT" variant="primary" />

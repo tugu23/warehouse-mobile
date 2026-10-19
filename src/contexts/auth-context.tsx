@@ -42,10 +42,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
         } catch (error: any) {
-          // Token invalid or expired
+          // Token invalid or expired - clear without calling logout()
           if (error.response?.status === 401) {
             console.log('Stored token expired, clearing...');
-            await logout();
+            await Promise.all([
+              AsyncStorage.removeItem(AUTH_TOKEN_KEY),
+              AsyncStorage.removeItem(USER_KEY),
+            ]);
+            // Don't call setToken/setUser here - let the normal render handle it
           }
         }
       }
@@ -53,21 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error loading stored auth:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const validateToken = async (): Promise<boolean> => {
-    try {
-      // Validate token by making a simple API call
-      await api.get('/auth/validate');
-      return true;
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        // Token invalid/expired - clear and require re-login
-        await logout();
-        return false;
-      }
-      return true; // Other errors might be network issues, keep the token
     }
   };
 

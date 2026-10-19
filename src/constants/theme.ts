@@ -144,10 +144,42 @@ export const PaymentMethodLabels: Record<string, string> = {
   Padan: 'Падан',
 };
 
-// Customer type labels
+// Customer type labels (maps database type names to Mongolian labels)
 export const CustomerTypeLabels: Record<string, string> = {
+  'Зах': 'Зах',
+  'Дэлгүүр': 'Дэлгүүр',
+  'Хоум плаза': 'Хоум плаза',
+  'Зах 2': 'Зах 2',
+  'Борлуулалт': 'Борлуулалт',
+  'Макс': 'Макс',
+  'Наран': 'Наран',
+  'Номин': 'Номин',
+  'Оргил': 'Оргил',
+  'Сансар': 'Сансар',
+  'Марал': 'Марал',
+  'Efes': 'Efes',
+  'Тэнгэр': 'Тэнгэр',
+  'Янта зах': 'Янта зах',
+  'Эко ивээл': 'Эко ивээл',
+  'Жавхлант': 'Жавхлант',
+  'TV5': 'TV5',
+  'Үнэгүй': 'Үнэгүй',
+  'Тэнгэр хайпер': 'Тэнгэр хайпер',
+  'Миний дэлгүүр': 'Миний дэлгүүр',
+  'МИАТ': 'МИАТ',
+  'Ресторан': 'Ресторан',
+  'Амархан': 'Амархан',
+  'CU': 'CU',
+  'Наш': 'Наш',
+  // Legacy fallback labels
   Retail: 'Жижиглэн',
   Wholesale: 'Худалдаа',
+};
+
+// Helper function to get customer type label
+export const getCustomerTypeLabel = (typeName: string | null | undefined): string => {
+  if (!typeName) return 'Төрөлгүй';
+  return CustomerTypeLabels[typeName] || typeName;
 };
 
 // Format currency (Mongolian Tugrik)

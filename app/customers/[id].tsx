@@ -18,7 +18,7 @@ import { OrderCard } from '@/components/order-card';
 import { customersApi } from '@/api/customers';
 import { ordersApi } from '@/api/orders';
 import { Customer, Order } from '@/types';
-import { Colors, Spacing, FontSizes, BorderRadius, CustomerTypeLabels } from '@/constants/theme';
+import { Colors, Spacing, FontSizes, BorderRadius, getCustomerTypeLabel } from '@/constants/theme';
 
 export default function CustomerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -116,7 +116,7 @@ export default function CustomerDetailScreen() {
     { label: 'Дүүрэг', value: customer.district || '-' },
     { label: 'Утас', value: customer.phoneNumber || '-' },
     { label: 'Хаяг', value: customer.address || '-' },
-    { label: 'Төрөл', value: CustomerTypeLabels[customer.customerType?.typeName || 'Retail'] || 'Жижиглэн' },
+    { label: 'Төрөл', value: getCustomerTypeLabel(customer.customerType?.typeName) },
     { label: 'НӨАТ', value: customer.isVatPayer ? 'Бүртгэлтэй' : 'Бүртгэлгүй' },
   ];
 
@@ -135,8 +135,8 @@ export default function CustomerDetailScreen() {
             <Text style={styles.customerName}>{customer.name}</Text>
             <View style={styles.badges}>
               <Badge
-                label={CustomerTypeLabels[customer.customerType?.typeName || 'Retail'] || 'Жижиглэн'}
-                variant={customer.customerType?.typeName === 'Wholesale' ? 'info' : 'success'}
+                label={getCustomerTypeLabel(customer.customerType?.typeName)}
+                variant={customer.customerType?.typeName === 'Борлуулалт' ? 'info' : 'success'}
               />
               {customer.isVatPayer && <Badge label="VAT" variant="primary" />}
             </View>

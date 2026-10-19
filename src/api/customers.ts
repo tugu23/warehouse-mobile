@@ -1,5 +1,5 @@
 import api from './client';
-import { ApiResponse, Customer } from '../types';
+import { ApiResponse, Customer, CustomerType } from '../types';
 
 interface CustomersFilters {
   search?: string;
@@ -18,6 +18,13 @@ interface CustomerListResponse {
       limit: number;
       total: number;
     };
+  };
+}
+
+interface CustomerTypeListResponse {
+  status: string;
+  data: {
+    customerTypes: CustomerType[];
   };
 }
 
@@ -67,5 +74,14 @@ export const customersApi = {
     if (response.data.status !== 'success') {
       throw new Error(response.data.message || 'Failed to delete customer');
     }
+  },
+
+  // Get all customer types from API
+  getCustomerTypes: async (): Promise<CustomerType[]> => {
+    const response = await api.get<CustomerTypeListResponse>('/customer-types');
+    if (response.data.status === 'success' && response.data.data?.customerTypes) {
+      return response.data.data.customerTypes;
+    }
+    return [];
   },
 };

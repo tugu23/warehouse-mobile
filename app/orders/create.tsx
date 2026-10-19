@@ -34,7 +34,8 @@ type PriceMode = 'customerType' | 'defaultPrice' | 'custom';
 
 interface CartItem {
   product: Product;
-  quantity: number;
+  quantity: number;        // Ширхэгийн тоо
+  boxQuantity: number;     // Хайрцагны тоо
   priceMode: PriceMode;
   customUnitPrice?: number;
   promotionId?: number;
@@ -70,19 +71,49 @@ const getActivePromotions = (product?: Product | null): Promotion[] => {
   const now = new Date().getTime();
   return product.promotions.filter((promo) => {
     if (!promo.isActive) return false;
-    const start = new Date(promo.startDate).getTime();
-    const end = new Date(promo.endDate).getTime();
+    const start = promo.startDate ? new Date(promo.startDate).getTime() : 0;
+    // null endDate means no expiration
+    const end = promo.endDate ? new Date(promo.endDate).getTime() : Number.MAX_SAFE_INTEGER;
     return start <= now && end >= now;
   });
 };
 
+// Helper: check if a promotion is applicable for given quantity
+const isPromotionApplicable = (promo: Promotion, totalPieces: number): boolean => {
+  // PERCENT_DISCOUNT promotions require minQuantity to be met
+  if (promo.type === 'PERCENT_DISCOUNT') {
+    const minQty = promo.minQuantity || 0;
+    return totalPieces >= minQty;
+  }
+  // BUY_X_GET_Y promotions don't have minQuantity threshold
+  return true;
+};
+
+// Helper: find the best applicable PERCENT_DISCOUNT promotion
+const findBestPercentPromotion = (
+  promotions: Promotion[],
+  totalPieces: number
+): Promotion | null => {
+  const applicablePromos = promotions.filter(
+    (p) => p.type === 'PERCENT_DISCOUNT' && isPromotionApplicable(p, totalPieces)
+  );
+  if (applicablePromos.length === 0) return null;
+  // Return the one with highest discount percent
+  return applicablePromos.reduce((best, current) => {
+    const bestDiscount = best.discountPercent || 0;
+    const currentDiscount = current.discountPercent || 0;
+    return currentDiscount > bestDiscount ? current : best;
+  });
+};
+
 // Helper: calculate bonus quantity for BUY_X_GET_Y promotions
-const calculateBonusQty = (promotion?: Promotion | null, baseQty?: number): number => {
-  if (!promotion || promotion.type !== 'BUY_X_GET_Y' || !baseQty) return 0;
+// Uses totalPieces (quantity + boxQuantity * unitsPerBox)
+const calculateBonusQty = (promotion?: Promotion | null, totalPieces?: number): number => {
+  if (!promotion || promotion.type !== 'BUY_X_GET_Y' || !totalPieces) return 0;
   const buyQty = promotion.buyQty || 0;
   const freeQty = promotion.freeQty || 0;
-  if (buyQty < 1 || freeQty < 1 || baseQty < buyQty) return 0;
-  return Math.floor(baseQty / buyQty) * freeQty;
+  if (buyQty < 1 || freeQty < 1 || totalPieces < buyQty) return 0;
+  return Math.floor(totalPieces / buyQty) * freeQty;
 };
 
 // Helper: format promotion label
@@ -90,7 +121,7 @@ const formatPromotionLabel = (promo: Promotion): string => {
   if (promo.type === 'BUY_X_GET_Y') {
     return `${promo.buyQty || 0}+${promo.freeQty || 0}`;
   } else if (promo.type === 'PERCENT_DISCOUNT') {
-    return `${promo.discountPercent || 0}% хөнгөлөлт`;
+    return `${promo.discountPercent || 0}% ${promo.minQuantity ? `(≥${promo.minQuantity}ш)` : ''}`;
   }
   return promo.name;
 };
@@ -177,29 +208,41 @@ export default function CreateOrderScreen() {
       basePrice = product.defaultPrice;
     }
 
-    // Apply percent discount if promotion is selected
+    // Apply percent discount if promotion is selected and applicable
     const promo = getSelectedPromotion(item);
+    const totalPieces = getTotalPieces(item);
     if (promo?.type === 'PERCENT_DISCOUNT' && promo.discountPercent) {
-      return Math.round(basePrice * (1 - promo.discountPercent / 100));
+      // Only apply if promotion is applicable for current quantity
+      if (isPromotionApplicable(promo, totalPieces)) {
+        return Math.round(basePrice * (1 - promo.discountPercent / 100));
+      }
     }
 
     return basePrice;
   };
 
-  // Calculate bonus quantity for BUY_X_GET_Y
+  // Calculate bonus quantity for BUY_X_GET_Y (uses total pieces including boxes)
   const getBonusQuantity = (item: CartItem): number => {
     const promo = getSelectedPromotion(item);
-    return calculateBonusQty(promo, item.quantity);
+    const totalPieces = getTotalPieces(item);
+    return calculateBonusQty(promo, totalPieces);
+  };
+
+  // Get total pieces (quantity + boxes * unitsPerBox)
+  const getTotalPieces = (item: CartItem): number => {
+    const unitsPerBox = item.product.unitsPerBox || 1;
+    return item.quantity + (item.boxQuantity * unitsPerBox);
   };
 
   // Calculate line subtotal (without bonus items)
   const getLineSubtotal = (item: CartItem): number => {
-    return getUnitPrice(item) * item.quantity;
+    const totalPieces = getTotalPieces(item);
+    return getUnitPrice(item) * totalPieces;
   };
 
   // Get total quantity including bonus
   const getTotalQuantity = (item: CartItem): number => {
-    return item.quantity + getBonusQuantity(item);
+    return getTotalPieces(item) + getBonusQuantity(item);
   };
 
   // Get available price modes for a product
@@ -236,7 +279,7 @@ export default function CreateOrderScreen() {
     } else {
       setCart([
         ...cart,
-        { product, quantity: 1, priceMode: defaultMode, customUnitPrice: undefined, promotionId },
+        { product, quantity: 1, boxQuantity: 0, priceMode: defaultMode, customUnitPrice: undefined, promotionId },
       ]);
     }
     setProductQuery('');
@@ -248,10 +291,22 @@ export default function CreateOrderScreen() {
       cart
         .map((item) =>
           item.product.id === productId
-            ? { ...item, quantity: Math.max(1, item.quantity + delta) }
+            ? { ...item, quantity: item.quantity + delta }
             : item
         )
-        .filter((item) => item.quantity > 0)
+        .filter((item) => item.quantity > 0 || item.boxQuantity > 0)
+    );
+  };
+
+  const updateBoxQuantity = (productId: number, delta: number) => {
+    setCart(
+      cart
+        .map((item) =>
+          item.product.id === productId
+            ? { ...item, boxQuantity: Math.max(0, item.boxQuantity + delta) }
+            : item
+        )
+        .filter((item) => item.quantity > 0 || item.boxQuantity > 0)
     );
   };
 
@@ -301,9 +356,10 @@ export default function CreateOrderScreen() {
 
     setIsSubmitting(true);
     try {
+      // Calculate total pieces for each item (quantity + boxes × unitsPerBox)
       const items: OrderItemRequest[] = cart.map((item) => ({
         productId: item.product.id,
-        quantity: item.quantity,
+        quantity: getTotalPieces(item), // Нийт ширхэг (хайрцаг + ширхэг)
         priceMode: item.priceMode,
         customUnitPrice: item.priceMode === 'custom' ? item.customUnitPrice : undefined,
         promotionId: item.promotionId,
@@ -320,13 +376,18 @@ export default function CreateOrderScreen() {
 
       const order = await ordersApi.createOrder(orderData);
 
-      // Prepare items for receipt display
-      const receiptItems = cart.map(item => ({
-        name: item.product.nameMongolian,
-        quantity: item.quantity,
-        unitPrice: getUnitPrice(item),
-        subtotal: getUnitPrice(item) * item.quantity,
-      }));
+      // Prepare items for receipt display (using total pieces including boxes)
+      const receiptItems = cart.map(item => {
+        const totalPieces = getTotalPieces(item);
+        const bonusQty = getBonusQuantity(item);
+        return {
+          name: item.product.nameMongolian,
+          quantity: totalPieces, // Нийт ширхэг (хайрцаг + ширхэг)
+          unitPrice: getUnitPrice(item),
+          subtotal: getLineSubtotal(item), // Зөв дүн
+          bonusQuantity: bonusQty > 0 ? bonusQty : undefined,
+        };
+      });
 
       // Navigate to receipt screen with order data
       router.push({
@@ -626,28 +687,39 @@ export default function CreateOrderScreen() {
                                   Хоосон
                                 </Text>
                               </TouchableOpacity>
-                              {activePromos.map((promo) => (
-                                <TouchableOpacity
-                                  key={promo.id}
-                                  style={[
-                                    styles.promotionButton,
-                                    item.promotionId === promo.id && styles.promotionButtonActive,
-                                  ]}
-                                  onPress={() => updatePromotion(item.product.id, promo.id)}
-                                >
-                                  <Text
+                              {activePromos.map((promo) => {
+                                const isApplicable = isPromotionApplicable(promo, totalQty);
+                                const isSelected = item.promotionId === promo.id;
+                                return (
+                                  <TouchableOpacity
+                                    key={promo.id}
                                     style={[
-                                      styles.promotionButtonText,
-                                      item.promotionId === promo.id && styles.promotionButtonTextActive,
+                                      styles.promotionButton,
+                                      isSelected && styles.promotionButtonActive,
+                                      !isApplicable && styles.promotionButtonDisabled,
                                     ]}
+                                    onPress={() => isApplicable && updatePromotion(item.product.id, promo.id)}
                                   >
-                                    {promo.type === 'BUY_X_GET_Y'
-                                      ? `🎁 ${promo.buyQty}+${promo.freeQty}`
-                                      : `🔥 ${promo.discountPercent}%`
-                                    }
-                                  </Text>
-                                </TouchableOpacity>
-                              ))}
+                                    <Text
+                                      style={[
+                                        styles.promotionButtonText,
+                                        isSelected && styles.promotionButtonTextActive,
+                                        !isApplicable && styles.promotionButtonTextDisabled,
+                                      ]}
+                                    >
+                                      {promo.type === 'BUY_X_GET_Y'
+                                        ? `🎁 ${promo.buyQty}+${promo.freeQty}`
+                                        : `🔥 ${promo.discountPercent}%${promo.minQuantity ? ` (≥${promo.minQuantity})` : ''}`
+                                      }
+                                    </Text>
+                                    {!isApplicable && (
+                                      <Text style={styles.promotionMinQty}>
+                                        {totalQty}/{promo.minQuantity}ш
+                                      </Text>
+                                    )}
+                                  </TouchableOpacity>
+                                );
+                              })}
                             </View>
                           </ScrollView>
                         </View>
@@ -662,39 +734,111 @@ export default function CreateOrderScreen() {
                         </View>
                       )}
 
-                      {/* Quantity Control */}
-                      <View style={styles.quantityControl}>
-                        <TouchableOpacity
-                          style={styles.quantityButton}
-                          onPress={() => updateQuantity(item.product.id, -1)}
-                        >
-                          <Text style={styles.quantityButtonText}>−</Text>
-                        </TouchableOpacity>
-                        <TextInput
-                          style={styles.quantityInput}
-                          value={String(item.quantity)}
-                          onChangeText={(text) => {
-                            const num = parseInt(text, 10);
-                            if (!isNaN(num) && num > 0) {
-                              setCart(
-                                cart.map((c) =>
-                                  c.product.id === item.product.id
-                                    ? { ...c, quantity: num }
-                                    : c
-                                )
-                              );
-                            }
-                          }}
-                          keyboardType="number-pad"
-                        />
-                        <TouchableOpacity
-                          style={[styles.quantityButton, styles.quantityButtonAdd]}
-                          onPress={() => updateQuantity(item.product.id, 1)}
-                        >
-                          <Text style={[styles.quantityButtonText, styles.quantityButtonTextAdd]}>
-                            +
-                          </Text>
-                        </TouchableOpacity>
+                      {/* Quantity Control - Pieces and Boxes */}
+                      <View style={styles.quantitySection}>
+                        <Text style={styles.quantityLabel}>Тоо хэмжээ:</Text>
+                        <View style={styles.quantityRow}>
+                          {/* Box Quantity */}
+                          <View style={styles.quantityField}>
+                            <Text style={styles.quantityFieldLabel}>
+                              Хайрцаг ({item.product.unitsPerBox || 1}ш)
+                            </Text>
+                            <View style={styles.quantityControlSmall}>
+                              <TouchableOpacity
+                                style={styles.quantityButtonSmall}
+                                onPress={() => updateBoxQuantity(item.product.id, -1)}
+                              >
+                                <Text style={styles.quantityButtonTextSmall}>−</Text>
+                              </TouchableOpacity>
+                              <TextInput
+                                style={styles.quantityInputSmall}
+                                value={String(item.boxQuantity)}
+                                onChangeText={(text) => {
+                                  const num = parseInt(text, 10);
+                                  if (text === '' || isNaN(num)) {
+                                    setCart(
+                                      cart.map((c) =>
+                                        c.product.id === item.product.id
+                                          ? { ...c, boxQuantity: 0 }
+                                          : c
+                                      )
+                                    );
+                                  } else if (num >= 0) {
+                                    setCart(
+                                      cart.map((c) =>
+                                        c.product.id === item.product.id
+                                          ? { ...c, boxQuantity: num }
+                                          : c
+                                      )
+                                    );
+                                  }
+                                }}
+                                keyboardType="number-pad"
+                              />
+                              <TouchableOpacity
+                                style={[styles.quantityButtonSmall, styles.quantityButtonSmallAdd]}
+                                onPress={() => updateBoxQuantity(item.product.id, 1)}
+                              >
+                                <Text style={[styles.quantityButtonTextSmall, styles.quantityButtonTextSmallAdd]}>+</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          {/* Piece Quantity */}
+                          <View style={styles.quantityField}>
+                            <Text style={styles.quantityFieldLabel}>Ширхэг</Text>
+                            <View style={styles.quantityControlSmall}>
+                              <TouchableOpacity
+                                style={styles.quantityButtonSmall}
+                                onPress={() => updateQuantity(item.product.id, -1)}
+                              >
+                                <Text style={styles.quantityButtonTextSmall}>−</Text>
+                              </TouchableOpacity>
+                              <TextInput
+                                style={styles.quantityInputSmall}
+                                value={String(item.quantity)}
+                                onChangeText={(text) => {
+                                  const num = parseInt(text, 10);
+                                  if (text === '') {
+                                    setCart(
+                                      cart.map((c) =>
+                                        c.product.id === item.product.id
+                                          ? { ...c, quantity: 0 }
+                                          : c
+                                      )
+                                    );
+                                  } else if (!isNaN(num) && num >= 0) {
+                                    setCart(
+                                      cart.map((c) =>
+                                        c.product.id === item.product.id
+                                          ? { ...c, quantity: num }
+                                          : c
+                                      )
+                                    );
+                                  }
+                                }}
+                                keyboardType="number-pad"
+                              />
+                              <TouchableOpacity
+                                style={[styles.quantityButtonSmall, styles.quantityButtonSmallAdd]}
+                                onPress={() => updateQuantity(item.product.id, 1)}
+                              >
+                                <Text style={[styles.quantityButtonTextSmall, styles.quantityButtonTextSmallAdd]}>+</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          {/* Total Pieces */}
+                          <View style={styles.totalPieces}>
+                            <Text style={styles.totalPiecesLabel}>Нийт</Text>
+                            <Text style={styles.totalPiecesValue}>{getTotalPieces(item)} ш</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Line Subtotal */}
+                      <View style={styles.lineSubtotalRow}>
+                        <Text style={styles.lineSubtotalLabel}>Дүн:</Text>
                         <Text style={styles.lineSubtotal}>{formatCurrency(lineSubtotal)}</Text>
                       </View>
                     </View>
@@ -1067,10 +1211,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.background,
+    minWidth: 70,
+    alignItems: 'center',
   },
   promotionButtonActive: {
     backgroundColor: '#ff6b35',
     borderColor: '#ff6b35',
+  },
+  promotionButtonDisabled: {
+    backgroundColor: Colors.muted,
+    borderColor: Colors.border,
+    opacity: 0.5,
   },
   promotionButtonText: {
     fontSize: FontSizes.xs,
@@ -1079,6 +1230,15 @@ const styles = StyleSheet.create({
   },
   promotionButtonTextActive: {
     color: Colors.white,
+  },
+  promotionButtonTextDisabled: {
+    color: Colors['muted-foreground'],
+    opacity: 0.6,
+  },
+  promotionMinQty: {
+    fontSize: 9,
+    color: Colors.error,
+    marginTop: 2,
   },
   bonusRow: {
     backgroundColor: '#22c55e20',
@@ -1090,6 +1250,96 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: '#22c55e',
     fontWeight: '700',
+  },
+  // New styles for box/piece quantity
+  quantitySection: {
+    backgroundColor: Colors.background,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.sm,
+  },
+  quantityLabel: {
+    fontSize: FontSizes.xs,
+    color: Colors['muted-foreground'],
+    fontWeight: '600',
+    marginBottom: Spacing.xs,
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  quantityField: {
+    flex: 1,
+  },
+  quantityFieldLabel: {
+    fontSize: FontSizes.xs,
+    color: Colors.foreground,
+    marginBottom: Spacing.xs,
+    textAlign: 'center',
+  },
+  quantityControlSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  quantityButtonSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityButtonSmallAdd: {
+    backgroundColor: Colors.primary,
+  },
+  quantityButtonTextSmall: {
+    fontSize: FontSizes.md,
+    fontWeight: '700',
+    color: Colors.foreground,
+  },
+  quantityButtonTextSmallAdd: {
+    color: Colors.white,
+  },
+  quantityInputSmall: {
+    width: 40,
+    textAlign: 'center',
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+    color: Colors.foreground,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  totalPieces: {
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  totalPiecesLabel: {
+    fontSize: FontSizes.xs,
+    color: Colors['muted-foreground'],
+  },
+  totalPiecesValue: {
+    fontSize: FontSizes.md,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  lineSubtotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  lineSubtotalLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors['muted-foreground'],
   },
   quantityControl: {
     flexDirection: 'row',

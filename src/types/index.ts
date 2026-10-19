@@ -6,15 +6,24 @@ export interface ApiResponse<T> {
   errors?: Array<{ field: string; message: string }>;
 }
 
+// Backend returns: { status, data: { orders: [...], pagination: {...} } }
 export interface PaginatedResponse<T> {
-  status: 'success';
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
+  status: string;
+  data: {
+    orders: T[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   };
+}
+
+// For simple array responses
+export interface ListResponse<T> {
+  status: string;
+  data: T[];
 }
 
 // Auth Types
@@ -45,8 +54,9 @@ export interface Promotion {
   isActive: boolean;
   startDate: string;
   endDate: string;
-  buyQty?: number;
-  freeQty?: number;
+  buyQty?: number;        // BOGO: Худалдан авах тоо
+  freeQty?: number;       // BOGO: Үнэгүй авах тоо
+  minQuantity?: number;   // PERCENT_DISCOUNT: Хамгийн бага захиалах тоо (босго)
   discountPercent?: number;
 }
 
@@ -125,6 +135,19 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   subtotal?: number;
+  promotionId?: number | null;
+  bonusFreeQty?: number;
+  originalUnitPrice?: number | null;
+  discountAmount?: number | null;
+  promotion?: {
+    id: number;
+    name: string;
+    type: 'PERCENT_DISCOUNT' | 'BUY_X_GET_Y';
+    discountPercent?: number | null;
+    buyQty?: number | null;
+    freeQty?: number | null;
+    minQuantity?: number | null;
+  } | null;
 }
 
 export interface Order {
@@ -161,12 +184,16 @@ export interface CreateOrderRequest {
     quantity: number;
     priceMode?: 'auto' | 'customerType' | 'custom';
     customUnitPrice?: number;
+    promotionId?: number;
   }>;
   paymentMethod: PaymentMethod;
   creditTermDays?: number;
   orderType: OrderType;
   deliveryDate?: string;
 }
+
+// UpdateOrderRequest is the same as CreateOrderRequest (same structure)
+export type UpdateOrderRequest = CreateOrderRequest;
 
 // Employee Types
 export interface Employee {
@@ -232,19 +259,6 @@ export interface CartItem {
   product: Product;
   quantity: number;
   unitPrice: number;
-}
-
-// Promotion Types
-export interface Promotion {
-  id: number;
-  type: 'BUY_X_GET_Y' | 'PERCENT_DISCOUNT';
-  label: string;
-  buyQty?: number;
-  freeQty?: number;
-  tiers?: Array<{
-    minQty: number;
-    discountPercent: number;
-  }>;
 }
 
 // Receipt/eBarimt Types

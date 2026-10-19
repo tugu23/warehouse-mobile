@@ -27,14 +27,52 @@ export default function HomeScreen() {
   const [stats, setStats] = useState({
     todayOrders: 0,
   });
+  const [isDataLoading, setIsDataLoading] = useState(false);
 
-  // Redirect to login if not authenticated
+  const fetchData = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    setIsDataLoading(true);
+    try {
+      // Fetch today's orders - backend returns { data: { orders: [...] } }
+      const today = new Date().toISOString().split('T')[0];
+      const ordersResponse = await ordersApi.getOrders({ dateFrom: today, limit: 3 });
+      const orders = ordersResponse?.data?.orders || [];
+      setRecentOrders(orders.slice(0, 3));
+      setStats((prev) => ({
+        ...prev,
+        todayOrders: orders.length,
+      }));
+    } catch (error: any) {
+      // If 401, redirect to login
+      if (error.response?.status === 401) {
+        router.replace('/login');
+      }
+      console.error('Error fetching home data:', error);
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, [isAuthenticated, router]);
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/login');
     }
   }, [authLoading, isAuthenticated, router]);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [isAuthenticated, fetchData]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchData();
+    setIsRefreshing(false);
+  };
+
+  // Show loading while auth is checking
   if (authLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -44,46 +82,6 @@ export default function HomeScreen() {
       </SafeAreaView>
     );
   }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const fetchData = useCallback(async () => {
-    if (!isAuthenticated) return;
-
-    try {
-      // Fetch today's orders
-      const today = new Date().toISOString().split('T')[0];
-      const ordersResponse = await ordersApi.getOrders({ dateFrom: today, limit: 3 });
-      if (ordersResponse.data) {
-        const orders = Array.isArray(ordersResponse.data)
-          ? ordersResponse.data
-          : (ordersResponse.data as any).orders || [];
-        setRecentOrders(orders.slice(0, 3));
-        setStats((prev) => ({
-          ...prev,
-          todayOrders: orders.length,
-        }));
-      }
-    } catch (error: any) {
-      // If 401, redirect to login
-      if (error.response?.status === 401) {
-        router.replace('/login');
-      }
-      console.error('Error fetching home data:', error);
-    }
-  }, [isAuthenticated, router]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await fetchData();
-    setIsRefreshing(false);
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
