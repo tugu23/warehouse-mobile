@@ -22,3 +22,9 @@ overrides:
   '@expo/env': 2.5.2
   caniuse-lite: 1.0.30001817
   react-native-qrcode-svg: 6.3.26
+
+# pnpm v10 blocks dependency build scripts by default and fails the install with
+# ERR_PNPM_IGNORED_BUILDS. unrs-resolver is a native resolver used by
+# eslint-import-resolver (a dev dependency), so its install script is safe.
+onlyBuiltDependencies:
+  - unrs-resolver
