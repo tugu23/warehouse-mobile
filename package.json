@@ -52,19 +52,6 @@
     "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
   },
-  "pnpm": {
-    "overrides": {
-      "expo": "57.0.30",
-      "expo-router": "57.0.28",
-      "expo-sharing": "57.0.23",
-      "expo-modules-core": "57.0.23",
-      "expo-modules-jsi": "57.1.2",
-      "@expo/cli": "57.0.31",
-      "@expo/config-plugins": "57.0.10",
-      "@expo/router-server": "57.0.13",
-      "@expo/ui": "57.0.25"
-    }
-  },
   "expo": {
     "install": {
       "exclude": [

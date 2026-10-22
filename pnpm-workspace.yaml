@@ -1,0 +1,24 @@
+# pnpm v10 reads settings from this file, not from the "pnpm" key in
+# package.json. Keep every override here so `pnpm install` and the EAS build
+# resolve identical versions.
+#
+# EAS Build verifies the lockfile against a pnpm supply-chain policy
+# (minimumReleaseAge = 24h) and fails the build if any locked package was
+# published within the last day. The versions below are the newest releases
+# that are comfortably older than that cutoff, so the build is reproducible.
+overrides:
+  # Expo SDK 57 core
+  expo: 57.0.30
+  expo-router: 57.0.28
+  expo-sharing: 57.0.23
+  expo-modules-core: 57.0.23
+  expo-modules-jsi: 57.1.2
+  '@expo/cli': 57.0.31
+  '@expo/config-plugins': 57.0.10
+  '@expo/router-server': 57.0.13
+  '@expo/ui': 57.0.25
+  # Transitive packages that publish frequently
+  '@expo-google-fonts/material-symbols': 0.4.50
+  '@expo/env': 2.5.2
+  caniuse-lite: 1.0.30001817
+  react-native-qrcode-svg: 6.3.26
