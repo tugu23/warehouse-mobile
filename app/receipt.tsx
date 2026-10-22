@@ -43,7 +43,7 @@ export default function ReceiptScreen() {
   const [eBarimtResult, setEBarimtResult] = useState<{
     success: boolean;
     lottery?: string;
-    receiptId?: string;
+    ebarimtBillId?: string;
     qrData?: string;
   } | null>(null);
 
@@ -64,7 +64,7 @@ export default function ReceiptScreen() {
     totalAmount,
     paymentMethod: params.paymentMethod || 'Cash',
     eReceiptNumber: eBarimtResult?.lottery || undefined,
-    eReceiptId: eBarimtResult?.receiptId || undefined,
+    eReceiptId: eBarimtResult?.ebarimtBillId || undefined,
   });
 
   const handlePrint = async () => {
@@ -102,10 +102,11 @@ export default function ReceiptScreen() {
     setIsSubmitting(true);
 
     try {
-      // Build request body based on type
+      // Build request body based on type. The backend expects `customerTin`
+      // as an override and falls back to the order's own registration number.
       const body = barimtType === 'B2B'
-        ? { registrationNumber: regNo }
-        : { citizenReg };
+        ? { customerTin: regNo }
+        : { customerTin: citizenReg };
 
       const result = await ebarimtApi.register(Number(params.orderId), body);
 
@@ -114,7 +115,7 @@ export default function ReceiptScreen() {
         setEBarimtResult({
           success: true,
           lottery: result.lottery,
-          receiptId: result.receiptId,
+          ebarimtBillId: result.ebarimtBillId || result.billId,
           qrData: result.qrData,
         });
 

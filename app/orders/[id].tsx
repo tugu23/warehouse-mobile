@@ -41,11 +41,7 @@ export default function OrderDetailScreen() {
    * - Order is not cancelled
    */
   const canEditOrder = (orderData: Order): boolean => {
-    return (
-      orderData.status === 'Pending' &&
-      !orderData.ebarimtRegistered &&
-      orderData.status !== 'Cancelled'
-    );
+    return orderData.status === 'Pending' && !orderData.ebarimtRegistered;
   };
 
   /**
@@ -569,7 +565,6 @@ const styles = StyleSheet.create({
     color: Colors.foreground,
     flex: 1.5,
     textAlign: 'right',
-    numberOfLines: 2,
   },
   itemsCard: {
     margin: Spacing.md,

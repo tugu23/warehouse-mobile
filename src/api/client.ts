@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://oasiserp.mn/api';
 
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

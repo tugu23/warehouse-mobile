@@ -30,7 +30,7 @@ export const ordersApi = {
       if (filters.search) params.append('search', filters.search);
     }
 
-    const response = await api.get<ApiResponse<Order[]> | PaginatedResponse<Order>>(
+    const response = await api.get<PaginatedResponse<Order>>(
       `/orders?${params.toString()}`
     );
     return response.data;

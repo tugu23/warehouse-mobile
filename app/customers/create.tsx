@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { customersApi } from '@/api/customers';
 import { Customer, CustomerType } from '@/types';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/theme';
@@ -147,27 +148,34 @@ export default function CreateCustomerScreen() {
 
           <View style={styles.field}>
             <Text style={styles.label}>Дүүрэг</Text>
-            <View style={styles.districtGrid}>
-              {districts.map((d) => (
-                <TouchableOpacity
-                  key={d}
-                  style={[
-                    styles.districtButton,
-                    form.district === d && styles.districtButtonSelected,
-                  ]}
-                  onPress={() => updateField('district', d)}
-                >
-                  <Text
-                    style={[
-                      styles.districtButtonText,
-                      form.district === d && styles.districtButtonTextSelected,
-                    ]}
-                  >
-                    {d}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* Searchable dropdown for district */}
+            <TouchableOpacity
+              style={styles.typeSelector}
+              onPress={() => {
+                Alert.alert(
+                  'Дүүрэг сонгох',
+                  undefined,
+                  [
+                    ...districts.map((d) => ({
+                      text: d,
+                      onPress: () => updateField('district', d),
+                    })),
+                    { text: 'Болих', style: 'cancel' as const },
+                  ],
+                  { cancelable: true }
+                );
+              }}
+            >
+              <Text
+                style={[
+                  styles.typeSelectorText,
+                  !form.district && styles.typeSelectorPlaceholder,
+                ]}
+              >
+                {form.district || 'Дүүрэг сонгох...'}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color={Colors.muted} />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.field}>
@@ -219,27 +227,53 @@ export default function CreateCustomerScreen() {
           ) : (
             <View style={styles.field}>
               <Text style={styles.label}>Төрөл</Text>
-              <View style={styles.typeGrid}>
-                {customerTypes.map((type) => (
+              {/* Searchable dropdown for customer type */}
+              <TouchableOpacity
+                style={styles.typeSelector}
+                onPress={() => {
+                  // Simple modal-based selection for better UX
+                  Alert.alert(
+                    'Харилцагчийн төрөл сонгох',
+                    undefined,
+                    [
+                      ...customerTypes.map((type) => ({
+                        text: type.typeName || `Төрөл ${type.id}`,
+                        onPress: () => updateField('customerType', String(type.id)),
+                      })),
+                      { text: 'Болих', style: 'cancel' as const },
+                    ],
+                    { cancelable: true }
+                  );
+                }}
+              >
+                <Text
+                  style={[
+                    styles.typeSelectorText,
+                    !form.customerType && styles.typeSelectorPlaceholder,
+                  ]}
+                >
+                  {form.customerType
+                    ? customerTypes.find((t) => String(t.id) === form.customerType)?.typeName || 'Сонгогдсон'
+                    : 'Төрөл сонгох...'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={Colors.muted} />
+              </TouchableOpacity>
+
+              {/* Selected type indicator */}
+              {form.customerType && (
+                <View style={styles.selectedTypeContainer}>
+                  <Badge
+                    label={customerTypes.find((t) => String(t.id) === form.customerType)?.typeName || ''}
+                    variant="primary"
+                  />
                   <TouchableOpacity
-                    key={type.id}
-                    style={[
-                      styles.typeButton,
-                      form.customerType === String(type.id) && styles.typeButtonSelected,
-                    ]}
-                    onPress={() => updateField('customerType', String(type.id))}
+                    onPress={() => updateField('customerType', '')}
+                    style={styles.clearTypeButton}
                   >
-                    <Text
-                      style={[
-                        styles.typeButtonText,
-                        form.customerType === String(type.id) && styles.typeButtonTextSelected,
-                      ]}
-                    >
-                      {type.typeName || `Төрөл ${type.id}`}
-                    </Text>
+                    <Ionicons name="close-circle" size={20} color={Colors.muted} />
                   </TouchableOpacity>
-                ))}
-              </View>
+                </View>
+              )}
             </View>
           )}
 
@@ -369,6 +403,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.inputBorder,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  typeSelectorText: {
+    fontSize: FontSizes.md,
+    color: Colors.foreground,
+    flex: 1,
+  },
+  typeSelectorPlaceholder: {
+    color: Colors['muted-foreground'],
+  },
+  selectedTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  clearTypeButton: {
+    padding: Spacing.xs,
   },
   typeButton: {
     paddingHorizontal: Spacing.md,

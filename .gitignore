@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# business documents / generated data - not part of the app
+assets/images/*.pdf
+
+# local build helpers
+android-env.sh
+
 # typescript
 *.tsbuildinfo
 

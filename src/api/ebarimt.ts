@@ -1,5 +1,6 @@
 import { api } from './client';
 import {
+  ApiResponse,
   EBarimtStatus,
   EBarimtRegisterResult,
   EBarimtReturnResult,
@@ -72,7 +73,7 @@ export const ebarimtApi = {
    * Get eBarimt service status
    */
   getStatus: async (): Promise<EBarimtStatus> => {
-    const response = await api.get<EBarimtStatus>('/api/ebarimt/status');
+    const response = await api.get<EBarimtStatus>('/ebarimt/status');
     return response.data;
   },
 
@@ -80,7 +81,7 @@ export const ebarimtApi = {
    * Get merchant information
    */
   getInformation: async () => {
-    const response = await api.get('/api/ebarimt/information');
+    const response = await api.get('/ebarimt/information');
     return response.data;
   },
 
@@ -91,11 +92,14 @@ export const ebarimtApi = {
     orderId: number,
     body?: EBarimtRegisterBody
   ): Promise<EBarimtRegisterResult> => {
-    const response = await api.post<EBarimtRegisterResult>(
-      `/api/ebarimt/register/${orderId}`,
+    const response = await api.post<ApiResponse<EBarimtRegisterResult>>(
+      `/ebarimt/register/${orderId}`,
       body
     );
-    return response.data;
+    if (response.data.status === 'success' && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.message || 'E-Barimt registration failed');
   },
 
   /**
@@ -105,18 +109,21 @@ export const ebarimtApi = {
     orderId: number,
     reason?: string
   ): Promise<EBarimtReturnResult> => {
-    const response = await api.post<EBarimtReturnResult>(
-      `/api/ebarimt/return/${orderId}`,
+    const response = await api.post<ApiResponse<EBarimtReturnResult>>(
+      `/ebarimt/return/${orderId}`,
       { reason }
     );
-    return response.data;
+    if (response.data.status === 'success' && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.message || 'E-Barimt return failed');
   },
 
   /**
    * Check TIN validity
    */
   checkTin: async (tin: string) => {
-    const response = await api.get(`/api/ebarimt/check-tin/${tin}`);
+    const response = await api.get(`/ebarimt/check-tin/${tin}`);
     return response.data;
   },
 
@@ -127,7 +134,7 @@ export const ebarimtApi = {
     regNo: string
   ): Promise<OrganizationInfo> => {
     const response = await api.get<OrganizationInfo>(
-      `/api/etax/organization/${regNo}`
+      `/etax/organization/${regNo}`
     );
     return response.data;
   },
@@ -152,7 +159,7 @@ export const ebarimtApi = {
     }
 
     const response = await api.get<{ data?: OrganizationLookupResponse }>(
-      `/api/etax/organization/${encodeURIComponent(normalizedTin)}`
+      `/etax/organization/${encodeURIComponent(normalizedTin)}`
     );
 
     const name = response.data.data?.organization?.name?.trim() ?? '';
@@ -177,7 +184,7 @@ export const ebarimtApi = {
     }
 
     const response = await api.get<{ data?: OrganizationLookupResponse }>(
-      `/api/etax/organization/${normalizedRegNo}`
+      `/etax/organization/${normalizedRegNo}`
     );
     const organization = response.data.data?.organization;
 
@@ -220,7 +227,7 @@ export const ebarimtApi = {
     }
 
     const response = await api.get<{ data?: OrganizationLookupResponse }>(
-      `/api/etax/organization/${regNo}`
+      `/etax/organization/${regNo}`
     );
     const organization = response.data.data?.organization;
 

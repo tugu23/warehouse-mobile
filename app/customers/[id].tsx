@@ -50,12 +50,7 @@ export default function CustomerDetailScreen() {
   const fetchCustomerOrders = async () => {
     try {
       const response = await ordersApi.getOrders({ customerId: Number(id), limit: 10 });
-      if (response.data) {
-        const data = Array.isArray(response.data)
-          ? response.data
-          : (response.data as any).orders || [];
-        setOrders(data);
-      }
+      setOrders(response.data?.orders || []);
     } catch (error) {
       console.error('Error fetching customer orders:', error);
     }
@@ -75,6 +70,8 @@ export default function CustomerDetailScreen() {
   };
 
   const handleDelete = () => {
+    if (!customer) return;
+
     Alert.alert(
       'Устгах',
       `${customer.name} устагахдаа итгэлтэй байна уу?`,

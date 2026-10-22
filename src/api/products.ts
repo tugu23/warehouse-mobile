@@ -25,13 +25,20 @@ export const productsApi = {
     if (response.data?.data?.products) {
       return response.data.data.products;
     }
+    // Fallback for direct array response
+    if (Array.isArray(response.data?.data)) {
+      return response.data.data;
+    }
     return response.data?.data || [];
   },
 
   getProduct: async (id: number): Promise<Product> => {
-    const response = await api.get<ApiResponse<Product>>(`/products/${id}`);
+    const response = await api.get<ApiResponse<{ product: Product }>>(`/products/${id}`);
     if (response.data.status === 'success' && response.data.data) {
-      return response.data.data as unknown as Product;
+      // Backend returns { status, data: { product: {...} } }
+      const data = response.data.data as { product: Product } | Product;
+      const productData = 'product' in data ? data.product : data;
+      return productData as unknown as Product;
     }
     throw new Error(response.data.message || 'Product not found');
   },
@@ -45,9 +52,14 @@ export const productsApi = {
   },
 
   getCategories: async (): Promise<Category[]> => {
-    const response = await api.get<ApiResponse<Category[]>>('/categories');
-    if (response.data.status === 'success' && response.data.data) {
-      return response.data.data as unknown as Category[];
+    const response = await api.get('/categories?limit=all');
+    // Backend returns { status, data: { categories: [...], pagination: {...} } }
+    if (response.data?.data?.categories) {
+      return response.data.data.categories;
+    }
+    // Fallback for direct array response
+    if (Array.isArray(response.data?.data)) {
+      return response.data.data;
     }
     return [];
   },

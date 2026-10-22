@@ -1,19 +1,37 @@
 import React from 'react';
-import { View, TextInput, StyleSheet, TextInputProps } from 'react-native';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  TextInputProps,
+  ViewStyle,
+  StyleProp,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, BorderRadius, FontSizes, Spacing } from '@/constants/theme';
 
-interface SearchBarProps extends TextInputProps {
+interface SearchBarProps extends Omit<TextInputProps, 'style'> {
   value: string;
   onChangeText: (text: string) => void;
+  /** Style for the outer container. */
+  style?: StyleProp<ViewStyle>;
+  /** Style for the text input itself. */
+  inputStyle?: TextInputProps['style'];
 }
 
-export function SearchBar({ value, onChangeText, placeholder = 'Хайх...', style, ...props }: SearchBarProps) {
+export function SearchBar({
+  value,
+  onChangeText,
+  placeholder = 'Хайх...',
+  style,
+  inputStyle,
+  ...props
+}: SearchBarProps) {
   return (
     <View style={[styles.container, style]}>
       <Ionicons name="search" size={18} color={Colors['muted-foreground']} style={styles.icon} />
       <TextInput
-        style={styles.input}
+        style={[styles.input, inputStyle]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}

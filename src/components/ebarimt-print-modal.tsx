@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { ebarimtApi, validateRegistrationNumber } from '@/api/ebarimt';
 import { addToApiQueue } from '@/services/offline-queue';
 import { printReceipt, shareReceipt } from '@/services/receiptPrintService';
-import { EBarimtStatus, EBarimtRegisterResult, Order, EBarimtType } from '@/types';
+import { EBarimtStatus, EBarimtRegisterResult, Order } from '@/types';
 import {
   formatCurrency,
   Colors,
@@ -197,11 +197,10 @@ export function EBarimtPrintModal({
       if (!isOnline) {
         // Queue for offline processing
         await addToApiQueue(
-          `/api/ebarimt/register/${order.id}`,
+          `/ebarimt/register/${order.id}`,
           'POST',
           {
-            type: isB2B ? 'B2B' : 'B2C',
-            customerNo: customerNo || undefined,
+            customerTin: customerNo || undefined,
             customerName: customerName || undefined,
             save: true,
           }
@@ -212,8 +211,7 @@ export function EBarimtPrintModal({
         };
       } else {
         registerResult = await ebarimtApi.register(order.id, {
-          type: (isB2B ? 'B2B' : 'B2C') as EBarimtType,
-          customerNo: customerNo || undefined,
+          customerTin: customerNo || undefined,
           save: true,
         });
       }
@@ -231,7 +229,7 @@ export function EBarimtPrintModal({
               {
                 orderId: order.id,
                 customerName: customerName || 'Харилцагч',
-                items: (order.items || []).map((item) => ({
+                items: (order.orderItems || []).map((item) => ({
                   name: item.product?.nameMongolian || item.product?.nameEnglish || 'Бараа',
                   quantity: item.quantity,
                   unitPrice: item.unitPrice,
@@ -310,7 +308,7 @@ export function EBarimtPrintModal({
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Огноо:</Text>
               <Text style={styles.infoValue}>
-                {new Date(order.createdAt || order.date).toLocaleDateString('mn-MN')}
+                {new Date(order.orderDate).toLocaleDateString('mn-MN')}
               </Text>
             </View>
             <View style={styles.divider} />

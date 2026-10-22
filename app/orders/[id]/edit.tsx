@@ -41,13 +41,7 @@ interface CartItem {
   promotionId?: number;
 }
 
-interface OrderItemRequest {
-  productId: number;
-  quantity: number;
-  priceMode: PriceMode;
-  customUnitPrice?: number;
-  promotionId?: number;
-}
+type OrderItemRequest = UpdateOrderRequest['items'][number];
 
 // Helper: get price for customer type
 const getPriceForCustomerType = (
@@ -183,17 +177,11 @@ export default function EditOrderScreen() {
         setDeliveryDate(new Date(orderData.deliveryDate).toISOString().split('T')[0]);
       }
 
-      // Convert order items to cart items
+      // Convert order items to cart items - use product data already included in order
       if (orderData.orderItems && orderData.orderItems.length > 0) {
-        // Need to load products to get full product data including promotions
-        const productIds = orderData.orderItems.map(item => item.productId);
-        const productPromises = productIds.map(pid => productsApi.getProduct(pid));
-        const productResults = await Promise.all(productPromises);
-        const productMap = new Map(productResults.map(p => [p.id, p]));
-
-        const cartItems: CartItem[] = orderData.orderItems.map(item => {
-          const product = productMap.get(item.productId);
-          if (!product) return null;
+        const cartItems: CartItem[] = orderData.orderItems.flatMap(item => {
+          const product = item.product;
+          if (!product) return [];
 
           // Calculate box and piece quantities (simplified - assumes 1 unit per piece)
           const unitsPerBox = product.unitsPerBox || 1;
@@ -212,15 +200,15 @@ export default function EditOrderScreen() {
             priceMode = 'custom';
           }
 
-          return {
+          return [{
             product,
             quantity,
             boxQuantity,
             priceMode,
             customUnitPrice: priceMode === 'custom' ? item.unitPrice : undefined,
             promotionId: item.promotionId || undefined,
-          };
-        }).filter((item): item is CartItem => item !== null);
+          }];
+        });
 
         setCart(cartItems);
       }

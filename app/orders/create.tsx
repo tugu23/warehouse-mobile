@@ -41,13 +41,7 @@ interface CartItem {
   promotionId?: number;
 }
 
-interface OrderItemRequest {
-  productId: number;
-  quantity: number;
-  priceMode: PriceMode;
-  customUnitPrice?: number;
-  promotionId?: number;
-}
+type OrderItemRequest = CreateOrderRequest['items'][number];
 
 // Helper: get price for customer type
 const getPriceForCustomerType = (

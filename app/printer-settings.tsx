@@ -268,7 +268,7 @@ export default function PrinterSettingsScreen() {
           title="Шинэ принтер хайх"
           onPress={scanForPrinters}
           disabled={!bluetoothEnabled || isScanning}
-          loading={isScanning}
+          isLoading={isScanning}
           style={styles.fullWidthButton}
         />
       </View>

@@ -59,6 +59,10 @@ export default function KPIScreen() {
       } catch (apiError) {
         // Use mock data when API is unavailable
         setKpi({
+          period: {
+            from: from.toISOString().split('T')[0],
+            to: today.toISOString().split('T')[0],
+          },
           summary: {
             totalOrders: 150,
             totalAmount: 15000000,

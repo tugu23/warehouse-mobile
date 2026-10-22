@@ -357,20 +357,8 @@ const printSingleReceipt = async (
     showLottery: options?.showLottery,
   });
 
-  // Try to check printer availability (expo-print 6.0+)
-  // If not available, just try to print directly
-  let hasPrinter = false;
-
-  if (typeof Print.getAvailablePrintersAsync === 'function') {
-    try {
-      const { available } = await Print.getAvailablePrintersAsync();
-      hasPrinter = available;
-    } catch {
-      // Ignore printer check errors
-    }
-  }
-
-  // Print directly - if no printer, it will show share dialog as fallback
+  // Print directly - the native print dialog handles printer selection.
+  // If no printer is available, the platform falls back to the share dialog.
   await Print.printAsync({ html });
 };
 
@@ -425,7 +413,6 @@ export const shareReceipt = async (
 
       const { uri } = await Print.printToFileAsync({
         html: combinedHtml,
-        fileName: `receipt-${data.orderId}-double`,
       });
 
       await Sharing.shareAsync(uri, {
@@ -438,7 +425,6 @@ export const shareReceipt = async (
 
       const { uri } = await Print.printToFileAsync({
         html,
-        fileName: `receipt-${data.orderId}`,
       });
 
       const isAvailable = await Sharing.isAvailableAsync();

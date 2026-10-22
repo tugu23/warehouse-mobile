@@ -124,6 +124,18 @@ export interface Customer {
 
 // Order Types
 export type OrderStatus = 'Pending' | 'Fulfilled' | 'Delivered' | 'Cancelled';
+
+/**
+ * How the unit price for an order item is resolved.
+ * Mirrors the values the backend accepts in `items.*.priceMode`.
+ */
+export type OrderPriceMode =
+  | 'auto'
+  | 'customerType'
+  | 'wholesale'
+  | 'retail'
+  | 'defaultPrice'
+  | 'custom';
 export type OrderType = 'Market' | 'Store';
 export type PaymentMethod = 'Cash' | 'Credit' | 'BankTransfer' | 'Sales' | 'Padan';
 export type PaymentStatus = 'Paid' | 'Pending' | 'Partial' | 'Overdue';
@@ -159,6 +171,7 @@ export interface Order {
   createdBy?: Employee;
   orderDate: string;
   deliveryDate?: string;
+  dueDate?: string;
   status: OrderStatus;
   orderType: OrderType;
   subtotalAmount?: number;
@@ -169,12 +182,16 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   creditTermDays?: number;
+  deliveryPlanId?: number;
   orderItems?: OrderItem[];
   ebarimtRegistered?: boolean;
   ebarimtId?: string;
   ebarimtBillId?: string;
   ebarimtDate?: string;
   ebarimtReturnId?: string;
+  ebarimtReceiptType?: 'B2C' | 'B2B';
+  returnedAt?: string;
+  returnReason?: string;
 }
 
 export interface CreateOrderRequest {
@@ -182,7 +199,7 @@ export interface CreateOrderRequest {
   items: Array<{
     productId: number;
     quantity: number;
-    priceMode?: 'auto' | 'customerType' | 'custom';
+    priceMode?: OrderPriceMode;
     customUnitPrice?: number;
     promotionId?: number;
   }>;
@@ -242,7 +259,7 @@ export interface KPISummary {
     quantity: number;
     amount: number;
   }>;
-  topCustomers: Array<{
+  topCustomers?: Array<{
     customerName: string;
     orderCount: number;
     amount: number;
@@ -273,10 +290,18 @@ export interface EBarimtStatus {
 
 export interface EBarimtRegisterResult {
   success: boolean;
+  orderId?: number;
+  ebarimtId?: string;
   ebarimtBillId?: string;
+  billId?: string;
+  date?: string;
   lottery?: string;
+  qrData?: string;
   qrBase64?: string;
   pdfUrl?: string;
+  isB2B?: boolean;
+  totalVAT?: number;
+  totalAmount?: number;
   message?: string;
 }
 
@@ -287,9 +312,10 @@ export interface EBarimtReturnResult {
 }
 
 export interface EBarimtRegisterBody {
-  type: EBarimtType;
-  customerNo?: string; // B2C: citizen reg number, B2B: org reg number
-  save?: boolean; // Save customer info
+  /** Customer TIN override. The backend falls back to the order's own registration number. */
+  customerTin?: string;
+  /** Whether the customer's info should be saved. */
+  save?: boolean;
 }
 
 export interface OrganizationInfo {
