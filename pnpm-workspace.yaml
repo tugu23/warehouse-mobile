@@ -24,7 +24,9 @@ overrides:
   react-native-qrcode-svg: 6.3.26
 
 # pnpm v10 blocks dependency build scripts by default and fails the install with
-# ERR_PNPM_IGNORED_BUILDS. unrs-resolver is a native resolver used by
-# eslint-import-resolver (a dev dependency), so its install script is safe.
-onlyBuiltDependencies:
-  - unrs-resolver
+# ERR_PNPM_IGNORED_BUILDS. pnpm v11 (which EAS Build uses) replaced the
+# onlyBuiltDependencies list with this allowBuilds map, so keep the map form.
+# unrs-resolver is a native resolver used by eslint-import-resolver (a dev
+# dependency), so its install script is safe to run.
+allowBuilds:
+  unrs-resolver: true
