@@ -22,6 +22,8 @@ overrides:
   '@expo/env': 2.5.2
   caniuse-lite: 1.0.30001817
   react-native-qrcode-svg: 6.3.26
+  qrcode: 1.5.4
+  '@types/qrcode': 1.5.6
 
 # pnpm v10 blocks dependency build scripts by default and fails the install with
 # ERR_PNPM_IGNORED_BUILDS. pnpm v11 (which EAS Build uses) replaced the

@@ -8,15 +8,16 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SvgXml } from 'react-native-svg';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ebarimtApi, validateRegistrationNumber } from '@/api/ebarimt';
 import { addToApiQueue } from '@/services/offline-queue';
 import { printReceipt, shareReceipt } from '@/services/receiptPrintService';
+import { buildQrSvg } from '@/services/qrCode';
 import { EBarimtStatus, EBarimtRegisterResult, Order } from '@/types';
 import {
   formatCurrency,
@@ -87,6 +88,8 @@ export function EBarimtPrintModal({
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [validationError, setValidationError] = useState<string>('');
   const [orgInfo, setOrgInfo] = useState<{ name: string; tin: string } | null>(null);
+  // The backend returns the QR code value, not an image, so render it here.
+  const [qrSvgMarkup, setQrSvgMarkup] = useState('');
 
   useEffect(() => {
     if (visible && order) {
@@ -96,6 +99,7 @@ export function EBarimtPrintModal({
       setIsB2B(false);
       setPrintTwoCopies(true);
       setResult(null);
+      setQrSvgMarkup('');
       setError('');
       setOrgInfo(null);
       setValidationError('');
@@ -218,6 +222,11 @@ export function EBarimtPrintModal({
 
       setResult(registerResult);
 
+      // Render the QR code value the backend returned into an SVG.
+      if (registerResult.qrData) {
+        buildQrSvg(registerResult.qrData, 160).then(setQrSvgMarkup);
+      }
+
       if (registerResult.success) {
         setStep('success');
         onSuccess?.(registerResult);
@@ -240,7 +249,7 @@ export function EBarimtPrintModal({
                 totalAmount: totalAmount,
                 paymentMethod: order.paymentMethod || 'Бэлэн',
                 eReceiptNumber: registerResult.lottery,
-                qrBase64: registerResult.qrBase64,
+                qrData: registerResult.qrData,
               },
               { printTwoCopies: true, isB2B }
             );
@@ -477,14 +486,10 @@ export function EBarimtPrintModal({
                 </Card>
               )}
 
-              {result.qrBase64 && (
+              {result.qrData && qrSvgMarkup && (
                 <Card style={styles.qrCard}>
                   <Text style={styles.qrLabel}>QR Код</Text>
-                  <Image
-                    source={{ uri: result.qrBase64 }}
-                    style={styles.qrImage}
-                    resizeMode="contain"
-                  />
+                  <SvgXml xml={qrSvgMarkup} width={160} height={160} />
                 </Card>
               )}
 
@@ -811,10 +816,6 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: Colors['muted-foreground'],
     marginBottom: Spacing.md,
-  },
-  qrImage: {
-    width: 150,
-    height: 150,
   },
   qrPlaceholder: {
     padding: Spacing.md,

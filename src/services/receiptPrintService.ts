@@ -1,6 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Order } from '@/types';
+import { buildQrSvg } from './qrCode';
 
 /**
  * Copy type for printTwoCopies feature
@@ -27,19 +28,23 @@ export interface OrderReceiptData {
   paymentMethod: string;
   eReceiptNumber?: string; // Lottery number
   eReceiptId?: string;
-  qrBase64?: string; // QR code image (from backend)
+  /**
+   * QR code *value* returned by the backend (not an image). The print HTML
+   * renders it into an inline SVG QR code.
+   */
+  qrData?: string;
   copyType?: CopyType; // For printTwoCopies feature
 }
 
 /**
  * Generate HTML receipt for printing
- * @param data - Receipt data including optional qrBase64 and copyType
+ * @param data - Receipt data including optional qrData and copyType
  * @param options - Optional settings for copy type and QR display
  */
-const generateReceiptHtml = (
+const generateReceiptHtml = async (
   data: OrderReceiptData,
   options?: { showQr?: boolean; showLottery?: boolean }
-): string => {
+): Promise<string> => {
   const date = new Date().toLocaleDateString('mn-MN');
   const time = new Date().toLocaleTimeString('mn-MN');
 
@@ -50,6 +55,10 @@ const generateReceiptHtml = (
 
   // Copy label for printTwoCopies feature
   const copyLabel = data.copyType === 'duplicate' ? '2-р ХУВЬ' : data.copyType === 'original' ? '1-р ХУВЬ' : '';
+
+  // Render the QR code value the backend gave us into an inline SVG so the
+  // printed receipt actually carries a scannable QR code.
+  const qrSvg = showQr ? await buildQrSvg(data.qrData, 140) : '';
 
   const itemsHtml = data.items
     .map(
@@ -290,9 +299,9 @@ const generateReceiptHtml = (
           <div class="lottery-number">${data.eReceiptNumber}</div>
         </div>
         ` : ''}
-        ${showQr && data.qrBase64 ? `
+        ${showQr && qrSvg ? `
         <div class="qr-section">
-          <img src="${data.qrBase64}" class="qr-image" alt="QR Code" />
+          ${qrSvg}
           <div class="qr-label">QR Код / QR Code</div>
         </div>
         ` : ''}
@@ -332,7 +341,7 @@ export const printReceipt = async (
         // B2B: hide QR, keep lottery
         // B2C: hide lottery, keep QR (if available)
         eReceiptNumber: options?.isB2B ? data.eReceiptNumber : undefined,
-        qrBase64: options?.isB2B ? data.qrBase64 : undefined,
+        qrData: options?.isB2B ? data.qrData : undefined,
       };
       await printSingleReceipt(duplicateData);
     } else {
@@ -352,7 +361,7 @@ const printSingleReceipt = async (
   data: OrderReceiptData,
   options?: { copyType?: CopyType; showQr?: boolean; showLottery?: boolean }
 ): Promise<void> => {
-  const html = generateReceiptHtml(data, {
+  const html = await generateReceiptHtml(data, {
     showQr: options?.showQr,
     showLottery: options?.showLottery,
   });
@@ -365,11 +374,11 @@ const printSingleReceipt = async (
 /**
  * Preview receipt (returns HTML for WebView or similar)
  */
-export const getReceiptHtml = (
+export const getReceiptHtml = async (
   data: OrderReceiptData,
   options?: { showQr?: boolean; showLottery?: boolean }
-): string => {
-  return generateReceiptHtml(data, options);
+): Promise<string> => {
+  return await generateReceiptHtml(data, options);
 };
 
 /**
@@ -384,14 +393,14 @@ export const shareReceipt = async (
 
     if (printTwoCopies) {
       // For sharing, we'll create a combined PDF with both copies
-      const copy1Html = generateReceiptHtml(data, { showQr: true, showLottery: true });
+      const copy1Html = await generateReceiptHtml(data, { showQr: true, showLottery: true });
       const copy2Data: OrderReceiptData = {
         ...data,
         copyType: 'duplicate',
         eReceiptNumber: options?.isB2B ? data.eReceiptNumber : undefined,
-        qrBase64: options?.isB2B ? data.qrBase64 : undefined,
+        qrData: options?.isB2B ? data.qrData : undefined,
       };
-      const copy2Html = generateReceiptHtml(copy2Data);
+      const copy2Html = await generateReceiptHtml(copy2Data);
 
       // Create combined HTML with page breaks
       const combinedHtml = `
@@ -421,7 +430,7 @@ export const shareReceipt = async (
         UTI: 'com.adobe.pdf',
       });
     } else {
-      const html = generateReceiptHtml(data);
+      const html = await generateReceiptHtml(data);
 
       const { uri } = await Print.printToFileAsync({
         html,
