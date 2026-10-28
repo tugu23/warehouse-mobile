@@ -34,12 +34,6 @@ export default function PrinterSettingsScreen() {
   const [isScanning, setIsScanning] = useState(false);
   const [bluetoothEnabled, setBluetoothEnabled] = useState(false);
 
-  useEffect(() => {
-    loadPrinters();
-    loadDefaultPrinter();
-    requestBluetoothPermission();
-  }, []);
-
   const loadPrinters = async () => {
     try {
       const data = await AsyncStorage.getItem(PRINTER_STORAGE_KEY);
@@ -113,7 +107,11 @@ export default function PrinterSettingsScreen() {
           granted['android.permission.BLUETOOTH_CONNECT'] === PermissionsAndroid.RESULTS.GRANTED;
         setBluetoothEnabled(hasPermission);
       } catch (error) {
+        // The Bluetooth permissions are not declared in the app manifest, so the
+        // request is rejected. Bluetooth stays off rather than pretending it
+        // is available.
         console.error('Bluetooth permission error:', error);
+        setBluetoothEnabled(false);
       }
     } else {
       // iOS - Bluetooth is enabled by default when app is in use
@@ -144,6 +142,12 @@ export default function PrinterSettingsScreen() {
     };
     await savePrinters([...printers, demoPrinter]);
   };
+
+  useEffect(() => {
+    loadPrinters();
+    loadDefaultPrinter();
+    requestBluetoothPermission();
+  }, []);
 
   const renderPrinterItem = ({ item }: { item: Printer }) => {
     const isDefault = item.id === defaultPrinterId;
