@@ -9,11 +9,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/card';
 import { StatsCard } from '@/components/ui/stats-card';
 import { useAuth } from '@/contexts/auth-context';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/theme';
+
+/**
+ * Public privacy policy page. Play Console requires a live, non-editable
+ * https URL for this, and the same link is shown inside the app so users
+ * can reach the policy without leaving the app.
+ */
+const PRIVACY_POLICY_URL =
+  'https://tugu23.github.io/warehouse-web/privacy-policy.html';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -42,6 +51,15 @@ export default function ProfileScreen() {
     { label: 'Имэйл', value: user?.email || '-' },
     { label: 'Албан тушаал', value: user?.role || '-' },
   ];
+
+  const openPrivacyPolicy = () => {
+    WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL).catch(() => {
+      Alert.alert(
+        'Алдаа',
+        'Нууц тулгайн бодлогын хуудсыг нээж чадсангүй. Интернет холбоог шалгана уу.'
+      );
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -109,6 +127,20 @@ export default function ProfileScreen() {
             <View style={styles.settingsItemLeft}>
               <Ionicons name="lock-closed-outline" size={20} color={Colors.foreground} />
               <Text style={styles.settingsItemLabel}>Нууц үг солих</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors['muted-foreground']} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingsItem}
+            onPress={openPrivacyPolicy}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color={Colors.foreground}
+              />
+              <Text style={styles.settingsItemLabel}>Нууц тулгайн бодлого</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors['muted-foreground']} />
           </TouchableOpacity>
