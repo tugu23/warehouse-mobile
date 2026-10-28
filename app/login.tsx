@@ -11,10 +11,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/theme';
+
+/**
+ * Public privacy policy page. Play Console requires a live, non-editable
+ * https URL for this, and the same link is shown inside the app so users
+ * can reach the policy without leaving the app.
+ */
+const PRIVACY_POLICY_URL =
+  'https://tugu23.github.io/warehouse-web/privacy-policy.html';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -23,6 +32,15 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+
+  const openPrivacyPolicy = () => {
+    WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL).catch(() => {
+      Alert.alert(
+        'Алдаа',
+        'Нууц тулгайн бодлогын хуудсыг нээж чадсангүй. Интернет холбоог шалгана уу.'
+      );
+    });
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -94,6 +112,14 @@ export default function LoginScreen() {
             disabled={isLoading}
             style={styles.loginButton}
           />
+
+          <TouchableOpacity
+            onPress={openPrivacyPolicy}
+            style={styles.privacyLink}
+            accessibilityRole="link"
+          >
+            <Text style={styles.privacyLinkText}>Нууц тулгайн бодлого</Text>
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -132,6 +158,15 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: FontSizes.sm,
     color: 'rgba(255,255,255,0.6)',
+  },
+  privacyLink: {
+    marginTop: Spacing.lg,
+    alignItems: 'center',
+  },
+  privacyLinkText: {
+    fontSize: FontSizes.sm,
+    color: 'rgba(255,255,255,0.75)',
+    textDecorationLine: 'underline',
   },
   form: {
     backgroundColor: Colors.card,
