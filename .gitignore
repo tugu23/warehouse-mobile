@@ -39,6 +39,9 @@ assets/images/*.pdf
 # local build helpers
 android-env.sh
 
+# built app bundles - upload to Play Console manually, not source
+*.aab
+
 # typescript
 *.tsbuildinfo
 
