@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/card';
 import { StatsCard } from '@/components/ui/stats-card';
 import { useAuth } from '@/contexts/auth-context';
 import { Colors, Spacing, FontSizes, BorderRadius } from '@/constants/theme';
+import { roleLabel } from '@/utils/roles';
 
 /**
  * Public privacy policy page. Play Console requires a live, non-editable
@@ -49,7 +50,7 @@ export default function ProfileScreen() {
   const infoRows = [
     { label: 'Нэр', value: user?.name || '-' },
     { label: 'Имэйл', value: user?.email || '-' },
-    { label: 'Албан тушаал', value: user?.role || '-' },
+    { label: 'Албан тушаал', value: roleLabel(user?.role) },
   ];
 
   const openPrivacyPolicy = () => {
@@ -82,7 +83,7 @@ export default function ProfileScreen() {
           <Text style={styles.userName}>{user?.name || 'Ажилтан'}</Text>
           <Text style={styles.userEmail}>{user?.email || '-'}</Text>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>{user?.role || 'SalesAgent'}</Text>
+            <Text style={styles.roleBadgeText}>{roleLabel(user?.role)}</Text>
           </View>
         </View>
 
