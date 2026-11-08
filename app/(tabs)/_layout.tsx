@@ -1,23 +1,42 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
+  // Edge-to-edge үед Android-ийн доод navigation bar хэсэг дээр tab bar
+  // суудаг тул зайг нэмэх шаардлагатай. Дээд талын зайг хасаж байгаа нь
+  // дээрх screen-үүд SafeAreaView-ээр өөрсдөө хангалттай.
+  const bottomInset = Math.max(insets.bottom, 8);
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.muted,
+        // Colors.muted (#ECECF0) нь цагаана дээр бөгөөд Android дээр
+        // icon/label бүр харагдахгүй болдог. Ил тод өнгө хэрэглэнэ.
+        tabBarInactiveTintColor: '#64748B',
+        tabBarShowLabel: true,
         tabBarStyle: {
           backgroundColor: Colors.card,
-          borderTopColor: Colors.border,
-          height: 55,
+          borderTopColor: '#E2E8F0',
+          borderTopWidth: 1,
+          height: 58 + bottomInset,
+          paddingTop: 6,
+          paddingBottom: bottomInset,
+          ...(Platform.OS === 'android' ? { elevation: 8 } : {}),
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
       }}
     >
