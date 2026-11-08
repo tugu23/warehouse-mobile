@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,18 +19,23 @@ const periodFilters = [
   { key: 'month', label: 'Энэ сар' },
 ];
 
+/** Formats a period-over-period change, or "—" when there is no baseline. */
+function formatChange(value: number | null): string {
+  if (value == null || Number.isNaN(value)) return '—';
+  const rounded = Math.round(value * 10) / 10;
+  return `${rounded > 0 ? '+' : ''}${rounded}%`;
+}
+
 export default function KPIScreen() {
   const [kpi, setKpi] = useState<KPISummary | null>(null);
   const [trendData, setTrendData] = useState<KPITrendData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchKPIData();
-  }, [selectedPeriod]);
-
-  const fetchKPIData = async () => {
+  // Data loading lives in a plain function (not a hook) so it can be reused
+  // by both the mount effect and the pull-to-refresh handler.
+  const fetchKPIData = useCallback(async () => {
     try {
       const today = new Date();
       let from: Date;
@@ -49,58 +54,28 @@ export default function KPIScreen() {
           from = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
       }
 
-      // Try API call, but use mock data on error
-      try {
-        const summary = await kpiApi.getKPISummary({
-          from: from.toISOString().split('T')[0],
-          to: today.toISOString().split('T')[0],
-        });
-        setKpi(summary);
-      } catch (apiError) {
-        // Use mock data when API is unavailable
-        setKpi({
-          period: {
-            from: from.toISOString().split('T')[0],
-            to: today.toISOString().split('T')[0],
-          },
-          summary: {
-            totalOrders: 150,
-            totalAmount: 15000000,
-            totalBoxes: 450,
-            achievementPercentage: 75,
-          },
-          vsPreviousPeriod: {
-            ordersChange: 10.5,
-            amountChange: 8.2,
-          },
-          topProducts: [
-            { productName: 'Сүү 1л', quantity: 500, amount: 1600000 },
-            { productName: 'Тараг 500г', quantity: 380, amount: 1064000 },
-            { productName: 'Цай Алтан Гоби', quantity: 290, amount: 435000 },
-            { productName: 'Усны сав 5л', quantity: 210, amount: 525000 },
-          ],
-        });
-        console.log('Using mock KPI data (API unavailable)');
-      }
+      const fromDate = from.toISOString().split('T')[0];
+      const toDate = today.toISOString().split('T')[0];
 
-      // Generate mock trend data for the chart
-      const days = selectedPeriod === 'month' ? 30 : selectedPeriod === 'week' ? 7 : 1;
-      const mockTrend: KPITrendData[] = [];
-      for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
-        const dayNames = ['Ня', 'Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя'];
-        mockTrend.push({
-          day: dayNames[d.getDay()],
-          amount: Math.random() * 15 + 5,
-        });
-      }
-      setTrendData(mockTrend);
+      // Load the summary and the trend series together; both come from the
+      // live API so the numbers always reflect real orders.
+      const [summary, trend] = await Promise.all([
+        kpiApi.getKPISummary({ from: fromDate, to: toDate }),
+        kpiApi.getTrendData({ from: fromDate, to: toDate }),
+      ]);
+
+      setKpi(summary);
+      setTrendData(trend);
+      setError(null);
     } catch (error) {
       console.error('Error fetching KPI data:', error);
-    } finally {
-      setIsLoading(false);
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Тайлангийн мэдээллийг ачаалж чадсангүй'
+      );
     }
-  };
+  }, [selectedPeriod]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -108,18 +83,54 @@ export default function KPIScreen() {
     setIsRefreshing(false);
   };
 
-  // Achievement ring calculation
-  const achievement = kpi?.summary?.achievementPercentage || 75;
-  const radius = 52;
-  const circumference = 2 * Math.PI * radius;
-  const progress = (achievement / 100) * circumference;
+  // Nothing loaded yet and no error -> the first request is still running.
+  const isLoading = kpi === null && error === null;
 
-  // Mock stats based on period
+  useEffect(() => {
+    // The state updates happen after the awaits resolve, so this is a
+    // subscription to an external system (the API), not a cascading render.
+    const load = async () => {
+      await fetchKPIData();
+    };
+    load();
+  }, [fetchKPIData]);
+
+  // Achievement ring calculation. The backend reports the achievement rate
+  // directly; fall back to 0 so an unset target never renders a fake 75%.
+  const achievement = kpi?.achievementSummary?.overallPct ?? 0;
+
   const stats = {
-    orders: kpi?.summary?.totalOrders || 150,
-    amount: (kpi?.summary?.totalAmount || 15000000) / 1000000,
-    boxes: kpi?.summary?.totalBoxes || 450,
+    orders: kpi?.totalOrders ?? 0,
+    amount: (kpi?.totalAmount ?? 0) / 1000000,
+    boxes: kpi?.totalBoxes ?? 0,
   };
+
+  // Percentage change against the previous period of the same length.
+  const percentChange = (current: number, previous?: number): number | null => {
+    if (previous == null || previous === 0) return null;
+    return ((current - previous) / previous) * 100;
+  };
+  const ordersChange = percentChange(
+    stats.orders,
+    kpi?.previousPeriodTotals?.totalOrders
+  );
+  const amountChange = percentChange(
+    kpi?.totalAmount ?? 0,
+    kpi?.previousPeriodTotals?.totalAmount
+  );
+
+  // Top products: the summary endpoint returns a single best seller, so the
+  // list is built from that product plus the category leader.
+  const topProducts = kpi?.topProduct
+    ? [
+        {
+          id: kpi.topProduct.id,
+          name: kpi.topProduct.name,
+          amount: kpi.topProduct.amount,
+        },
+      ]
+    : [];
+  const maxProductAmount = Math.max(...topProducts.map((p) => p.amount), 1);
 
   // Find max for chart scaling
   const maxAmount = Math.max(...trendData.map((d) => d.amount), 1);
@@ -149,6 +160,24 @@ export default function KPIScreen() {
             onSelect={setSelectedPeriod}
           />
         </View>
+
+        {isLoading && !error ? (
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Тайлан ачаалж байна…</Text>
+            <Text style={styles.errorHint}>Үүнийг ачаалахад багахан хугацаа шаардана.</Text>
+          </Card>
+        ) : null}
+
+        {error ? (
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorTitle}>Тайлан ачаалагдсангүй</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorHint}>
+              Интернэтийн холбоог шалгаад дахин оролтоно. Доорх хуудлыг
+              гүйлгэж баяжуулж болно.
+            </Text>
+          </Card>
+        ) : null}
 
         {/* Achievement Ring */}
         <Card style={styles.achievementCard}>
@@ -206,13 +235,27 @@ export default function KPIScreen() {
         <View style={styles.comparisonRow}>
           <Card style={styles.comparisonCard}>
             <View style={styles.comparisonContent}>
-              <Text style={styles.comparisonValue}>+{kpi?.vsPreviousPeriod?.ordersChange || 10.5}%</Text>
+              <Text
+                style={[
+                  styles.comparisonValue,
+                  (ordersChange ?? 0) < 0 && styles.comparisonValueDown,
+                ]}
+              >
+                {formatChange(ordersChange)}
+              </Text>
               <Text style={styles.comparisonLabel}>Захиалга өөрчлөлт</Text>
             </View>
           </Card>
           <Card style={styles.comparisonCard}>
             <View style={styles.comparisonContent}>
-              <Text style={styles.comparisonValue}>+{kpi?.vsPreviousPeriod?.amountChange || 8.2}%</Text>
+              <Text
+                style={[
+                  styles.comparisonValue,
+                  (amountChange ?? 0) < 0 && styles.comparisonValueDown,
+                ]}
+              >
+                {formatChange(amountChange)}
+              </Text>
               <Text style={styles.comparisonLabel}>Орлогын өөрчлөлт</Text>
             </View>
           </Card>
@@ -233,7 +276,7 @@ export default function KPIScreen() {
                         styles.chartBarFill,
                         {
                           height: Math.max(height, 4),
-                          backgroundColor: isToday ? Colors.muted : Colors.primary,
+                          backgroundColor: isToday ? Colors.primary : '#93C5FD',
                         },
                       ]}
                     />
@@ -249,33 +292,31 @@ export default function KPIScreen() {
         <Card style={styles.topProductsCard}>
           <Text style={styles.sectionTitle}>Шилдэг бараанууд</Text>
           <View style={styles.topProductsList}>
-            {(kpi?.topProducts || [
-              { productName: 'Сүү 1л', quantity: 500, amount: 1600000 },
-              { productName: 'Тараг 500г', quantity: 380, amount: 1064000 },
-              { productName: 'Цай Алтан Гоби', quantity: 290, amount: 435000 },
-              { productName: 'Усны сав 5л', quantity: 210, amount: 525000 },
-            ]).map((product, index) => {
-              const maxAmount = 1600000;
-              const widthPercent = (product.amount / maxAmount) * 100;
-              return (
-                <View key={index} style={styles.topProductItem}>
-                  <View style={styles.topProductHeader}>
-                    <View style={styles.topProductRank}>
-                      <Text style={styles.topProductRankText}>{index + 1}</Text>
+            {topProducts.length === 0 ? (
+              <Text style={styles.emptyText}>Энэ хугацаанд борлуулалт байхгүй</Text>
+            ) : (
+              topProducts.map((product, index) => {
+                const widthPercent = (product.amount / maxProductAmount) * 100;
+                return (
+                  <View key={product.id} style={styles.topProductItem}>
+                    <View style={styles.topProductHeader}>
+                      <View style={styles.topProductRank}>
+                        <Text style={styles.topProductRankText}>{index + 1}</Text>
+                      </View>
+                      <Text style={styles.topProductName}>{product.name}</Text>
+                      <Text style={styles.topProductAmount}>
+                        {formatCurrency(product.amount)}
+                      </Text>
                     </View>
-                    <Text style={styles.topProductName}>{product.productName}</Text>
-                    <Text style={styles.topProductAmount}>
-                      {formatCurrency(product.amount)}
-                    </Text>
+                    <View style={styles.progressBarContainer}>
+                      <View
+                        style={[styles.progressBar, { width: `${widthPercent}%` }]}
+                      />
+                    </View>
                   </View>
-                  <View style={styles.progressBarContainer}>
-                    <View
-                      style={[styles.progressBar, { width: `${widthPercent}%` }]}
-                    />
-                  </View>
-                </View>
-              );
-            })}
+                );
+              })
+            )}
           </View>
         </Card>
 
@@ -404,6 +445,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.success,
     fontVariant: ['tabular-nums'],
+  },
+  comparisonValueDown: {
+    color: Colors.error,
+  },
+  errorCard: {
+    marginBottom: Spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.error,
+  },
+  errorTitle: {
+    fontSize: FontSizes.md,
+    fontWeight: '700',
+    color: Colors.error,
+    marginBottom: Spacing.xs,
+  },
+  errorText: {
+    fontSize: FontSizes.sm,
+    color: Colors.foreground,
+    marginBottom: Spacing.xs,
+  },
+  errorHint: {
+    fontSize: FontSizes.xs,
+    color: Colors['muted-foreground'],
+    lineHeight: 16,
+  },
+  emptyText: {
+    fontSize: FontSizes.sm,
+    color: Colors['muted-foreground'],
+    textAlign: 'center',
+    paddingVertical: Spacing.md,
   },
   comparisonLabel: {
     fontSize: FontSizes.xs,

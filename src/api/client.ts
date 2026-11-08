@@ -30,15 +30,39 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid - clear storage and redirect to login
-      await AsyncStorage.removeItem('authToken');
-      await AsyncStorage.removeItem('user');
-      // In a real app, you would use router.push('/login') here
-      // But since we use expo-router, the auth context will handle this
+      // A failed login attempt is a normal error, not an expired session, so
+      // it must not tear down the auth state.
+      const isLoginRequest = error.config?.url?.includes('/auth/login');
+
+      if (!isLoginRequest) {
+        // Token expired or invalid - clear storage and reset the auth state.
+        await AsyncStorage.removeItem('authToken');
+        await AsyncStorage.removeItem('user');
+        // The AuthProvider registers a handler here so the in-memory session
+        // is dropped too. Without it the app stays on the authenticated
+        // screens while every request fails with 401.
+        notifyUnauthorized();
+      }
     }
     return Promise.reject(error);
   }
 );
+
+/**
+ * Called when the server rejects the stored token. The AuthProvider registers
+ * a handler so React state is cleared and the router can redirect to login.
+ */
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  unauthorizedHandler = handler;
+}
+
+function notifyUnauthorized() {
+  if (unauthorizedHandler) {
+    unauthorizedHandler();
+  }
+}
 
 export default api;
 export { API_BASE_URL, api };

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../api/client';
+import api, { setUnauthorizedHandler } from '../api/client';
 import { User, LoginRequest, LoginResponse, ApiResponse } from '../types';
 
 interface AuthContextType {
@@ -26,6 +26,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load stored auth data on mount
   useEffect(() => {
     loadStoredAuth();
+  }, []);
+
+  // When any request comes back 401 the API client clears the stored token;
+  // mirror that in React state so the router sends the user back to login
+  // instead of leaving them on a screen where nothing can load.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setToken(null);
+      setUser(null);
+    });
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const loadStoredAuth = async () => {

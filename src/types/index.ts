@@ -238,32 +238,55 @@ export interface Store {
 }
 
 // KPI Types
+// Shapes below mirror the real /api/agent-kpi responses. The previous
+// definitions described a shape the backend never returned, so the screen
+// silently fell back to hard-coded demo numbers.
+export interface KPIDailyTrend {
+  date: string;
+  amount: number;
+  boxes: number;
+}
+
+export interface KPITopProduct {
+  id: number;
+  name: string;
+  amount: number;
+}
+
+export interface KPITopAgent {
+  id: number;
+  name: string;
+  amount: number;
+}
+
+export interface KPIPeriodTotals {
+  totalAmount: number;
+  totalBoxes: number;
+  totalOrders: number;
+}
+
 export interface KPISummary {
-  period: {
-    from: string;
-    to: string;
+  totalAmount: number;
+  totalBoxes: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  topAgent: KPITopAgent | null;
+  topProduct: KPITopProduct | null;
+  topCategory: { id: number; name: string; amount: number } | null;
+  dailyTrend: KPIDailyTrend[];
+  achievementSummary: {
+    dailyAvg: number;
+    monthlyAvg: number;
+    overallPct: number;
   };
-  summary: {
-    totalOrders: number;
-    totalBoxes: number;
-    totalAmount: number;
-    targetAmount?: number;
-    achievementPercentage?: number;
-  };
-  vsPreviousPeriod: {
-    ordersChange: number;
-    amountChange: number;
-  };
-  topProducts: Array<{
-    productName: string;
-    quantity: number;
-    amount: number;
-  }>;
-  topCustomers?: Array<{
-    customerName: string;
-    orderCount: number;
-    amount: number;
-  }>;
+  previousPeriodTotals: KPIPeriodTotals | null;
+  missedTargets: {
+    agentId: number;
+    agentName: string;
+    target: number;
+    actual: number;
+    shortfall: number;
+  }[];
 }
 
 export interface KPITrendData {

@@ -42,6 +42,9 @@ android-env.sh
 # built app bundles - upload to Play Console manually, not source
 *.aab
 
+# local Expo Go builds for on-device testing
+.local-apk/
+
 # typescript
 *.tsbuildinfo
 
