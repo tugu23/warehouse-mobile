@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { setUnauthorizedHandler } from '../api/client';
 import { User, LoginRequest, LoginResponse, ApiResponse } from '../types';
@@ -23,23 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load stored auth data on mount
-  useEffect(() => {
-    loadStoredAuth();
-  }, []);
-
-  // When any request comes back 401 the API client clears the stored token;
-  // mirror that in React state so the router sends the user back to login
-  // instead of leaving them on a screen where nothing can load.
-  useEffect(() => {
-    setUnauthorizedHandler(() => {
-      setToken(null);
-      setUser(null);
-    });
-    return () => setUnauthorizedHandler(null);
-  }, []);
-
-  const loadStoredAuth = async () => {
+  const loadStoredAuth = useCallback(async () => {
     try {
       const [storedToken, storedUser] = await Promise.all([
         AsyncStorage.getItem(AUTH_TOKEN_KEY),
@@ -69,7 +53,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Load stored auth data on mount
+  useEffect(() => {
+    loadStoredAuth();
+  }, [loadStoredAuth]);
+
+  // When any request comes back 401 the API client clears the stored token;
+  // mirror that in React state so the router sends the user back to login
+  // instead of leaving them on a screen where nothing can load.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setToken(null);
+      setUser(null);
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   const login = async (credentials: LoginRequest) => {
     const response = await api.post<ApiResponse<LoginResponse>>('/auth/login', credentials);
